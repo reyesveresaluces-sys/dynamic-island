@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
@@ -42,6 +43,8 @@ namespace DynamicIsland
             // Monitores conectados/desconectados o cambio de resolución
             Microsoft.Win32.SystemEvents.DisplaySettingsChanged += (_, _) =>
                 Dispatcher.BeginInvoke(new Action(SyncScreens), DispatcherPriority.Background);
+
+            StartKeepOnTop();
 
             _service = new NotificationService();
             _service.NotificationArrived += PushAll;
@@ -135,6 +138,47 @@ namespace DynamicIsland
 
             if (_media != null) island.AttachMedia(_media);
             return island;
+        }
+
+        // ---------------- Mantener la isla siempre visible ----------------
+
+        private delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
+            int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc,
+            WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+
+        private const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+        private const uint EVENT_SYSTEM_MINIMIZEEND = 0x0017;
+        private const uint WINEVENT_OUTOFCONTEXT = 0x0000;
+
+        private WinEventDelegate? _winEventProc; // referencia viva para que el GC no lo recolecte
+        private IntPtr _foregroundHook, _restoreHook;
+        private readonly DispatcherTimer _topTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+
+        /// <summary>
+        /// Cuando otra ventana o pestaña pasa al frente, Windows puede dejar la isla detrás.
+        /// Escuchamos esos cambios y la volvemos a subir, más un respaldo cada segundo.
+        /// </summary>
+        private void StartKeepOnTop()
+        {
+            _winEventProc = (_, _, _, _, _, _, _) => KeepOnTop();
+            _foregroundHook = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND,
+                IntPtr.Zero, _winEventProc, 0, 0, WINEVENT_OUTOFCONTEXT);
+            _restoreHook = SetWinEventHook(EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZEEND,
+                IntPtr.Zero, _winEventProc, 0, 0, WINEVENT_OUTOFCONTEXT);
+
+            _topTimer.Tick += (_, _) => KeepOnTop();
+            _topTimer.Start();
+        }
+
+        private void KeepOnTop()
+        {
+            foreach (var w in _islands) w.BringToTop();
         }
 
         private void PushAll(IslandNotification n)
@@ -262,6 +306,9 @@ namespace DynamicIsland
 
         protected override void OnExit(ExitEventArgs e)
         {
+            _topTimer.Stop();
+            if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
+            if (_restoreHook != IntPtr.Zero) UnhookWinEvent(_restoreHook);
             _tray?.Dispose();
             _mutex?.Dispose();
             base.OnExit(e);

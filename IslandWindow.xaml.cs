@@ -438,6 +438,18 @@ namespace DynamicIsland
             SetWindowPos(hwnd, HWND_TOPMOST, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
         }
 
+        /// <summary>Vuelve a colocar la isla por encima de todas las ventanas (sin robar el foco).</summary>
+        public void BringToTop()
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero) return;
+            if (!IsVisible) Show();
+            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+        }
+
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOOWNERZORDER = 0x0200;
+
         [StructLayout(LayoutKind.Sequential)]
         private struct RECT { public int Left, Top, Right, Bottom; }
 
