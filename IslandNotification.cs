@@ -15,6 +15,9 @@ namespace DynamicIsland
         public DateTime Time { get; init; } = DateTime.Now;
         public ImageSource? Icon { get; init; }
 
+        /// <summary>Sitio web que envió la notificación (p. ej. web.whatsapp.com) si vino de un navegador.</summary>
+        public string Site { get; init; } = "";
+
         /// <summary>Acción opcional al hacer clic (si no hay, se abre la app por su AppId).</summary>
         public Action? OnClick { get; init; }
 

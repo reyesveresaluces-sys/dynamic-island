@@ -160,6 +160,21 @@ namespace DynamicIsland
             }
             catch { icon = null; }
 
+            // Notificaciones web: el navegador agrega el dominio del sitio (p. ej. web.whatsapp.com)
+            string site = "";
+            if (BrowserTabs.IsBrowser(appId, appName))
+            {
+                var lines = (title + "\n" + body).Split('\n').Where(t => t.Trim().Length > 0).ToList();
+                site = lines.Select(BrowserTabs.AsDomain).FirstOrDefault(d => d != null) ?? "";
+                if (site.Length > 0)
+                {
+                    lines = lines.Where(t => BrowserTabs.AsDomain(t) == null).ToList();
+                    title = lines.FirstOrDefault() ?? "";
+                    body = string.Join("\n", lines.Skip(1));
+                    appName = $"{appName} · {site}";
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(body)) return null;
 
             return new IslandNotification
@@ -170,7 +185,8 @@ namespace DynamicIsland
                 Title = title,
                 Body = body,
                 Time = n.CreationTime.LocalDateTime,
-                Icon = icon
+                Icon = icon,
+                Site = site
             };
         }
 
@@ -228,8 +244,10 @@ namespace DynamicIsland
             foreach (var row in rows)
             {
                 _lastDbId = Math.Max(_lastDbId, row.id);
-                var (title, body) = ParseToastXml(row.payload);
+                var (title, body, site) = ParseToastXml(row.payload);
                 if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(body)) continue;
+                string appName = PrettyAppName(row.appId);
+                if (site.Length > 0) appName = $"{appName} · {site}";
                 DateTime time;
                 try { time = row.arrival > 0 ? DateTime.FromFileTime(row.arrival) : DateTime.Now; }
                 catch { time = DateTime.Now; }
@@ -237,27 +255,41 @@ namespace DynamicIsland
                 NotificationArrived?.Invoke(new IslandNotification
                 {
                     Id = 0,
-                    AppName = PrettyAppName(row.appId),
+                    AppName = appName,
                     AppId = row.appId,
                     Title = title,
                     Body = body,
-                    Time = time
+                    Time = time,
+                    Site = site
                 });
             }
         }
 
-        private static (string title, string body) ParseToastXml(string xml)
+        private static (string title, string body, string site) ParseToastXml(string xml)
         {
             try
             {
                 var doc = XDocument.Parse(xml.TrimEnd('\0'));
                 var binding = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "binding");
-                var texts = (binding ?? doc.Root!)
-                    .Descendants().Where(e => e.Name.LocalName == "text")
-                    .Select(e => e.Value.Trim()).Where(t => t.Length > 0).ToList();
-                return (texts.FirstOrDefault() ?? "", string.Join("\n", texts.Skip(1)));
+                string site = "";
+                var texts = new List<string>();
+                foreach (var e in (binding ?? doc.Root!).Descendants().Where(x => x.Name.LocalName == "text"))
+                {
+                    string v = e.Value.Trim();
+                    if (v.Length == 0) continue;
+                    bool attribution = (string?)e.Attribute("placement") == "attribution";
+                    string? domain = BrowserTabs.AsDomain(v);
+                    if (domain != null && (attribution || texts.Count > 0))
+                    {
+                        site = domain; // el sitio web que mandó la notificación
+                        continue;
+                    }
+                    if (attribution) continue;
+                    texts.Add(v);
+                }
+                return (texts.FirstOrDefault() ?? "", string.Join("\n", texts.Skip(1)), site);
             }
-            catch { return ("", ""); }
+            catch { return ("", "", ""); }
         }
 
         /// <summary>Convierte un AUMID en un nombre legible: "Microsoft.Windows.Explorer" → "Explorer".</summary>
