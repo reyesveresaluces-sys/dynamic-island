@@ -9,6 +9,7 @@ Una "Dynamic Island" estilo iPhone en la parte superior de la pantalla que **ref
   - la píldora muestra la portada y un ecualizador animado;
   - al pasar el mouse aparece una tarjeta con canción, artista y botones ⏮ ⏯ ⏭;
   - al cambiar de canción, la isla lo anuncia.
+- **Varios monitores:** aparece una isla en cada pantalla, sincronizadas entre sí (misma notificación, misma música, descartar/limpiar en una se refleja en todas). Si conectas o desconectas un monitor, se ajusta sola. Se puede limitar a la pantalla principal desde la bandeja.
 - Clic en una notificación → abre la app. Clic derecho → descartar.
 
 > Nota: Windows no permite que otras apps usen el botón "Responder" de una notificación, así que para contestar se abre la app al hacer clic.

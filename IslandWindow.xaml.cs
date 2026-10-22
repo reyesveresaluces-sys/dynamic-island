@@ -45,9 +45,15 @@ namespace DynamicIsland
         /// <summary>Se dispara cuando el usuario descarta una notificación (para quitarla del Centro de actividades).</summary>
         public event Action<IslandNotification>? Dismissed;
         public event Action? ClearedAll;
+        public event Action? HistoryOpened;
 
-        public IslandWindow()
+        /// <summary>Nombre del monitor (Screen.DeviceName) donde vive esta isla.</summary>
+        public string ScreenId { get; }
+        public IReadOnlyList<IslandNotification> History => _history;
+
+        public IslandWindow(string screenId)
         {
+            ScreenId = screenId;
             InitializeComponent();
             HistoryList.ItemsSource = _history;
 
@@ -67,12 +73,50 @@ namespace DynamicIsland
             UpdateClock();
             BuildEqualizer();
 
+            SourceInitialized += (_, _) => { MakeToolWindow(); PositionWindow(); };
             Loaded += (_, _) => PositionWindow();
-            SourceInitialized += (_, _) => MakeToolWindow();
-            Microsoft.Win32.SystemEvents.DisplaySettingsChanged += (_, _) => Dispatcher.Invoke(PositionWindow);
+            // Al pasar a un monitor con otra escala, WPF cambia el tamaño: volvemos a centrar
+            DpiChanged += (_, _) => Dispatcher.BeginInvoke(new Action(PositionWindow), DispatcherPriority.Background);
+            Closed += (_, _) =>
+            {
+                if (_media != null)
+                {
+                    _media.Changed -= UpdateMedia;
+                    _media.TrackChanged -= OnTrackChanged;
+                }
+                _clockTimer.Stop();
+                _bannerTimer.Stop();
+                SetEqualizer(false);
+            };
         }
 
         // ---------------- API pública ----------------
+
+        /// <summary>Copia el historial de otra isla (cuando aparece un monitor nuevo).</summary>
+        public void LoadHistory(IEnumerable<IslandNotification> items)
+        {
+            foreach (var n in items) _history.Add(n);
+        }
+
+        /// <summary>Marca como vistas (otra isla abrió el historial).</summary>
+        public void MarkSeen()
+        {
+            _unread = 0;
+            UpdateBadge();
+        }
+
+        /// <summary>Quita una notificación descartada en otra isla.</summary>
+        public void RemoveItem(IslandNotification n)
+        {
+            _history.Remove(n);
+            if (_state == IslandState.History) ResizeHistory();
+        }
+
+        public void ClearHistory()
+        {
+            _history.Clear();
+            if (_state == IslandState.History) ResizeHistory();
+        }
 
         public void Push(IslandNotification n)
         {
@@ -100,6 +144,7 @@ namespace DynamicIsland
             _media = media;
             media.Changed += UpdateMedia;
             media.TrackChanged += OnTrackChanged;
+            UpdateMedia(); // por si ya está sonando algo
         }
 
         private void UpdateMedia()
@@ -230,6 +275,7 @@ namespace DynamicIsland
             UpdateBadge();
             ResizeHistory();
             ShowView(HistoryView);
+            HistoryOpened?.Invoke();
         }
 
         private void ResizeHistory()
@@ -372,12 +418,38 @@ namespace DynamicIsland
             SetEqualizer(playing);
         }
 
-        private void PositionWindow()
+        /// <summary>Centra la isla arriba del monitor que le corresponde (en píxeles físicos).</summary>
+        public void PositionWindow()
         {
-            var area = SystemParameters.WorkArea;
-            Left = area.Left + (area.Width - Width) / 2;
-            Top = area.Top;
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero) return;
+
+            System.Windows.Forms.Screen? screen = null;
+            foreach (var s in System.Windows.Forms.Screen.AllScreens)
+                if (s.DeviceName == ScreenId) { screen = s; break; }
+            screen ??= System.Windows.Forms.Screen.PrimaryScreen;
+            if (screen == null) return;
+
+            var area = screen.WorkingArea;
+            if (!GetWindowRect(hwnd, out var r)) return;
+            int width = r.Right - r.Left;
+            int x = area.Left + (area.Width - width) / 2;
+            int y = area.Top;
+            SetWindowPos(hwnd, HWND_TOPMOST, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
         }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT { public int Left, Top, Right, Bottom; }
+
+        private static readonly IntPtr HWND_TOPMOST = new(-1);
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOACTIVATE = 0x0010;
+
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
 
         private static T? FindParent<T>(DependencyObject child) where T : DependencyObject
         {
