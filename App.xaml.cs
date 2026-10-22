@@ -182,6 +182,25 @@ namespace DynamicIsland
                 if (_indexItem != null) _indexItem.Text = "Índice: " + _index.Status;
             }));
             _index.Start();
+
+            // El OCR necesita un idioma de Windows con reconocimiento de texto instalado
+            if (AppSettings.Current.OcrEnabled)
+            {
+                System.Threading.Tasks.Task.Run(() => OcrService.Available).ContinueWith(t =>
+                {
+                    if (t.Result) return;
+                    PushAll(new IslandNotification
+                    {
+                        AppName = "Buscador",
+                        Title = "OCR no disponible",
+                        Body = "Agrega el idioma Español en Configuración → Hora e idioma para leer texto en imágenes.",
+                        OnClick = () =>
+                        {
+                            try { Process.Start(new ProcessStartInfo("ms-settings:regionlanguage") { UseShellExecute = true }); } catch { }
+                        }
+                    });
+                }, System.Threading.Tasks.TaskScheduler.FromCurrentSynchronizationContext());
+            }
         }
 
         // ---------------- Mantener la isla siempre visible ----------------
@@ -255,6 +274,19 @@ namespace DynamicIsland
             var reindex = new Forms.ToolStripMenuItem("Volver a indexar ahora");
             reindex.Click += (_, _) => _index?.RequestRescan();
             menu.Items.Add(reindex);
+
+            var ocrItem = new Forms.ToolStripMenuItem("Leer texto en imágenes y PDF escaneados (OCR)")
+            {
+                Checked = AppSettings.Current.OcrEnabled,
+                CheckOnClick = true
+            };
+            ocrItem.CheckedChanged += (_, _) =>
+            {
+                AppSettings.Current.OcrEnabled = ocrItem.Checked;
+                AppSettings.Current.Save();
+                _index?.OcrSettingChanged();
+            };
+            menu.Items.Add(ocrItem);
             menu.Items.Add(new Forms.ToolStripSeparator());
 
             var allScreens = new Forms.ToolStripMenuItem("Mostrar en todas las pantallas") { Checked = _allScreens, CheckOnClick = true };

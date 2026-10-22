@@ -76,6 +76,58 @@ namespace DynamicIsland
             _wake.Set();
         }
 
+        /// <summary>Se activó o desactivó el OCR en los ajustes.</summary>
+        public void OcrSettingChanged()
+        {
+            _ocrChanged = true;
+            _wake.Set();
+        }
+
+        private volatile bool _ocrChanged = true; // al arrancar, revisar si falta encolar el OCR
+
+        /// <summary>
+        /// Encola imágenes y PDF escaneados que se indexaron antes de activar el OCR,
+        /// o quita de la cola el trabajo de OCR si se desactivó.
+        /// </summary>
+        private void ApplyOcrSetting(SqliteConnection con)
+        {
+            _ocrChanged = false;
+            bool enabled = AppSettings.Current.OcrEnabled;
+            string queued;
+            using (var get = con.CreateCommand())
+            {
+                get.CommandText = "SELECT v FROM meta WHERE k='ocr_queued'";
+                queued = get.ExecuteScalar() as string ?? "0";
+            }
+            if (enabled == (queued == "1")) return;
+
+            using var tx = con.BeginTransaction();
+            using var cmd = con.CreateCommand();
+            cmd.Transaction = tx;
+            if (enabled)
+            {
+                SetStatus(true, "Preparando OCR…");
+                cmd.CommandText = @"
+UPDATE files SET pending = 2
+ WHERE pending = 0 AND size BETWEEN $min AND $max
+   AND ext IN ('.jpg','.jpeg','.png','.bmp','.tif','.tiff','.gif','.webp','.jfif','.heic');
+UPDATE files SET pending = 1
+ WHERE pending = 0 AND ext = '.pdf'
+   AND id IN (SELECT rowid FROM docs WHERE length(body) < 200);
+INSERT INTO meta(k,v) VALUES('ocr_queued','1') ON CONFLICT(k) DO UPDATE SET v='1';";
+                cmd.Parameters.AddWithValue("$min", MinOcrImage);
+                cmd.Parameters.AddWithValue("$max", MaxOcrImage);
+            }
+            else
+            {
+                cmd.CommandText = @"
+UPDATE files SET pending = 0 WHERE pending = 2;
+INSERT INTO meta(k,v) VALUES('ocr_queued','0') ON CONFLICT(k) DO UPDATE SET v='0';";
+            }
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+        }
+
         private static SqliteConnection Open(bool readOnly = false)
         {
             var con = new SqliteConnection($"Data Source={DbPath};Mode={(readOnly ? "ReadOnly" : "ReadWriteCreate")};Cache=Private");
@@ -102,7 +154,8 @@ CREATE TABLE IF NOT EXISTS files(
     gen INTEGER NOT NULL,
     pending INTEGER NOT NULL DEFAULT 0,
     isapp INTEGER NOT NULL DEFAULT 0);
-CREATE INDEX IF NOT EXISTS ix_files_pending ON files(pending, mtime) WHERE pending = 1;
+DROP INDEX IF EXISTS ix_files_pending;
+CREATE INDEX IF NOT EXISTS ix_files_todo ON files(pending, mtime) WHERE pending > 0;
 CREATE INDEX IF NOT EXISTS ix_files_gen ON files(gen);
 CREATE VIRTUAL TABLE IF NOT EXISTS docs USING fts5(name, body, tokenize = 'unicode61 remove_diacritics 2');
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);";
@@ -129,6 +182,7 @@ CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);";
                         lastScan = DateTime.Now;
                     }
 
+                    if (_ocrChanged) ApplyOcrSetting(con);
                     ProcessChanges(con);
                     bool more = ExtractBatch(con, token);
                     UpdateCounts(con);
@@ -258,6 +312,17 @@ CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);";
             return path.StartsWith(DataDir, StringComparison.OrdinalIgnoreCase);
         }
 
+        // Cola de lectura de contenido: 1 = documentos (rápido), 2 = OCR de imágenes (lento, va al final)
+        private const long MinOcrImage = 10 * 1024, MaxOcrImage = 30L * 1024 * 1024;
+
+        private static int PendingFor(string ext, long size, bool isApp)
+        {
+            if (isApp || size <= 0) return 0;
+            if (TextExtractor.IsSupported(ext) && size <= TextExtractor.MaxSize(ext)) return 1;
+            if (AppSettings.Current.OcrEnabled && TextExtractor.IsImage(ext) && size >= MinOcrImage && size <= MaxOcrImage) return 2;
+            return 0;
+        }
+
         /// <summary>Escrituras agrupadas en transacciones para que el rastreo sea rápido.</summary>
         private sealed class Batch
         {
@@ -275,7 +340,7 @@ CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);";
                 try { size = f.Length; mtime = f.LastWriteTimeUtc.Ticks; }
                 catch { return; }
 
-                bool wantsContent = !isApp && TextExtractor.IsSupported(ext) && size > 0 && size <= TextExtractor.MaxSize(ext);
+                int wantsContent = PendingFor(ext, size, isApp);
                 string display = isApp ? System.IO.Path.GetFileNameWithoutExtension(f.Name) : f.Name;
 
                 using var find = _con.CreateCommand();
@@ -296,7 +361,7 @@ CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);";
                     up.Parameters.AddWithValue("$s", size);
                     up.Parameters.AddWithValue("$m", mtime);
                     up.Parameters.AddWithValue("$g", _gen);
-                    up.Parameters.AddWithValue("$pe", wantsContent ? 1 : 0);
+                    up.Parameters.AddWithValue("$pe", wantsContent);
                     up.Parameters.AddWithValue("$a", isApp ? 1 : 0);
                     up.Parameters.AddWithValue("$id", id);
                     up.ExecuteNonQuery();
@@ -314,7 +379,7 @@ CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);";
                     ins.Parameters.AddWithValue("$s", size);
                     ins.Parameters.AddWithValue("$m", mtime);
                     ins.Parameters.AddWithValue("$g", _gen);
-                    ins.Parameters.AddWithValue("$pe", wantsContent ? 1 : 0);
+                    ins.Parameters.AddWithValue("$pe", wantsContent);
                     ins.Parameters.AddWithValue("$a", isApp ? 1 : 0);
                     ins.ExecuteNonQuery();
                 }
@@ -345,21 +410,44 @@ CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);";
         // ---------- Extracción de contenido ----------
         private bool ExtractBatch(SqliteConnection con, CancellationToken token)
         {
-            var items = new List<(long id, string path, string ext)>();
+            var items = new List<(long id, string path, string ext, long pending)>();
             using (var cmd = con.CreateCommand())
             {
-                cmd.CommandText = "SELECT id, path, ext FROM files WHERE pending = 1 ORDER BY mtime DESC LIMIT 100";
+                cmd.CommandText = "SELECT id, path, ext, pending FROM files WHERE pending > 0 ORDER BY pending, mtime DESC LIMIT 50";
                 using var r = cmd.ExecuteReader();
-                while (r.Read()) items.Add((r.GetInt64(0), r.GetString(1), r.GetString(2)));
+                while (r.Read()) items.Add((r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetInt64(3)));
             }
             if (items.Count == 0) return false;
 
-            SetStatus(true, $"Leyendo contenido… faltan {PendingContent:N0}");
-            foreach (var (id, path, ext) in items)
+            SetStatus(true, items[0].pending == 2
+                ? $"Leyendo texto en imágenes (OCR)… faltan {PendingContent:N0}"
+                : $"Leyendo contenido… faltan {PendingContent:N0}");
+
+            bool ocr = AppSettings.Current.OcrEnabled && OcrService.Available;
+            foreach (var (id, path, ext, pending) in items)
             {
-                if (token.IsCancellationRequested || !_changes.IsEmpty) break;
+                if (token.IsCancellationRequested || !_changes.IsEmpty || _ocrChanged) break;
                 string body = "";
-                try { body = TextExtractor.Extract(path, ext); } catch { /* protegido, dañado o en uso */ }
+                try
+                {
+                    if (TextExtractor.IsImage(ext))
+                    {
+                        if (ocr) body = OcrService.RecognizeImageFile(path);
+                    }
+                    else if (ext == ".pdf")
+                    {
+                        body = TextExtractor.ExtractPdf(path, out var scanned);
+                        // Páginas escaneadas (sin texto real): leerlas con OCR, máximo 30 por PDF
+                        if (ocr && scanned.Count > 0)
+                            body += " " + System.Text.RegularExpressions.Regex.Replace(
+                                OcrService.RecognizePdfPages(path, scanned.Take(30)), @"\s+", " ");
+                    }
+                    else
+                    {
+                        body = TextExtractor.Extract(path, ext);
+                    }
+                }
+                catch { /* protegido, dañado o en uso */ }
 
                 using var tx = con.BeginTransaction();
                 using var cmd = con.CreateCommand();
@@ -377,7 +465,7 @@ CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);";
         private void UpdateCounts(SqliteConnection con)
         {
             using var cmd = con.CreateCommand();
-            cmd.CommandText = "SELECT COUNT(*), IFNULL(SUM(pending),0) FROM files";
+            cmd.CommandText = "SELECT COUNT(*), IFNULL(SUM(pending > 0),0) FROM files";
             using var r = cmd.ExecuteReader();
             if (r.Read())
             {

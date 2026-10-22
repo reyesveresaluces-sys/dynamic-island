@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -80,14 +81,21 @@ namespace DynamicIsland
         public bool HotkeyRegistered { get; private set; }
 
         private readonly DispatcherTimer _debounce = new() { Interval = TimeSpan.FromMilliseconds(130) };
+        private readonly DispatcherTimer _previewDebounce = new() { Interval = TimeSpan.FromMilliseconds(90) };
+        private CancellationTokenSource? _previewCts;
         private int _version;
         private string _indexStatus = "";
         private bool _indexBusy;
+
+        private const double NarrowWidth = 780, WideWidth = 1240;
 
         public SearchWindow()
         {
             InitializeComponent();
             _debounce.Tick += (_, _) => { _debounce.Stop(); RunSearch(Query.Text); };
+            _previewDebounce.Tick += (_, _) => { _previewDebounce.Stop(); LoadPreview(); };
+            SizeChanged += (_, e) => { if (IsVisible && e.WidthChanged) Recenter(); };
+            IsVisibleChanged += (_, _) => { if (!IsVisible) _previewCts?.Cancel(); };
             Deactivated += (_, _) => HideBar();
             PreviewKeyDown += OnPreviewKeyDown;
             SourceInitialized += (_, _) => { MakeToolWindow(); RegisterHotkey(); };
@@ -150,6 +158,18 @@ namespace DynamicIsland
             SetWindowPos(hwnd, HWND_TOPMOST, x, y, 0, 0, SWP_NOSIZE);
         }
 
+        /// <summary>Al ensancharse para la vista previa, vuelve a centrarse sin moverse verticalmente.</summary>
+        private void Recenter()
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (!GetWindowRect(hwnd, out var r)) return;
+            var screen = System.Windows.Forms.Screen.FromHandle(hwnd);
+            var area = screen.WorkingArea;
+            int width = r.Right - r.Left;
+            int x = area.Left + (area.Width - width) / 2;
+            SetWindowPos(hwnd, HWND_TOPMOST, x, r.Top, 0, 0, SWP_NOSIZE);
+        }
+
         // ---------------- Búsqueda ----------------
 
         private void Query_TextChanged(object sender, TextChangedEventArgs e)
@@ -166,6 +186,7 @@ namespace DynamicIsland
             {
                 Results.ItemsSource = null;
                 ResultsArea.Visibility = Visibility.Collapsed;
+                Width = NarrowWidth;
                 return;
             }
 
@@ -183,10 +204,18 @@ namespace DynamicIsland
                 else EmptyText.Text = "Sin resultados";
                 CountText.Text = _indexBusy ? "" : _indexStatus;
                 ResultsArea.Visibility = Visibility.Visible;
-                if (items.Count > 0)
+
+                bool any = items.Count > 0;
+                PreviewPane.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+                ResultsGrid.Height = any ? 500 : 56;
+                ListColumn.Width = any ? new GridLength(460) : new GridLength(1, GridUnitType.Star);
+                Width = any ? WideWidth : NarrowWidth;
+
+                if (any)
                 {
                     Results.SelectedIndex = 0;
                     Results.ScrollIntoView(items[0]);
+                    LoadPreview();
                 }
             }, TaskScheduler.FromCurrentSynchronizationContext());
         }
@@ -203,6 +232,7 @@ namespace DynamicIsland
                 KindLabel = r.Kind switch
                 {
                     ResultKind.App => "App",
+                    ResultKind.Content when TextExtractor.IsImage(System.IO.Path.GetExtension(r.Path).ToLowerInvariant()) => "Texto en imagen",
                     ResultKind.Content => "Contenido",
                     _ => "Archivo"
                 },
@@ -213,6 +243,139 @@ namespace DynamicIsland
                     _ => $"{folder}  ·  {when}"
                 }
             };
+        }
+
+        // ---------------- Vista previa ----------------
+
+        private void Results_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            _previewDebounce.Stop();
+            _previewDebounce.Start();
+        }
+
+        private List<string> QueryTerms() =>
+            Query.Text.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+                 .Select(t => t.Trim('"', '*', '(', ')', ':', '^', '-', '+'))
+                 .Where(t => t.Length > 1)
+                 .ToList();
+
+        private async void LoadPreview()
+        {
+            _previewCts?.Cancel();
+            if (Results.SelectedItem is not ResultItem item) return;
+
+            var cts = new CancellationTokenSource();
+            _previewCts = cts;
+            var terms = QueryTerms();
+
+            PreviewTitle.Text = item.Name;
+            PreviewPath.Text = item.Path;
+            PreviewInfo.Text = "";
+            PreviewImage.Source = null;
+            PreviewText.Visibility = Visibility.Collapsed;
+            PageBadge.Visibility = Visibility.Collapsed;
+            PreviewLoading.Text = "Cargando vista previa…";
+            PreviewLoading.Visibility = Visibility.Visible;
+
+            PreviewData data;
+            try
+            {
+                data = await PreviewService.LoadAsync(item.Path, terms, cts.Token);
+            }
+            catch (OperationCanceledException) { return; }
+            catch { data = new PreviewData(); }
+            if (cts.IsCancellationRequested || !ReferenceEquals(Results.SelectedItem, item)) return;
+
+            PreviewInfo.Text = data.Info;
+            PreviewLoading.Visibility = Visibility.Collapsed;
+
+            switch (data.Kind)
+            {
+                case PreviewKind.Image:
+                case PreviewKind.Thumbnail:
+                    PreviewImage.Source = data.Image;
+                    break;
+                case PreviewKind.Pdf:
+                    PreviewImage.Source = data.Image;
+                    PageText.Text = data.PageInfo;
+                    PageBadge.Visibility = Visibility.Visible;
+                    break;
+                case PreviewKind.Text:
+                    ShowText(data.Text, terms, data.Monospace);
+                    break;
+                default:
+                    PreviewImage.Source = item.Icon;
+                    break;
+            }
+        }
+
+        /// <summary>Muestra el texto con las palabras buscadas resaltadas y salta a la primera.</summary>
+        private void ShowText(string text, IReadOnlyList<string> terms, bool mono)
+        {
+            var doc = new FlowDocument
+            {
+                FontFamily = mono ? new FontFamily("Cascadia Mono, Consolas") : new FontFamily("Segoe UI Variable Text, Segoe UI"),
+                FontSize = mono ? 12 : 13,
+                PagePadding = new Thickness(0),
+                LineHeight = mono ? 17 : 19
+            };
+            var highlight = new SolidColorBrush(Color.FromArgb(0x70, 0xFF, 0xD6, 0x0A));
+            highlight.Freeze();
+            var cmp = CultureInfo.InvariantCulture.CompareInfo;
+            const CompareOptions opts = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace;
+            Run? first = null;
+
+            foreach (var block in text.Split("\n\n"))
+            {
+                var para = new Paragraph { Margin = new Thickness(0, 0, 0, 10) };
+                var lines = block.Split('\n');
+                for (int li = 0; li < lines.Length; li++)
+                {
+                    string line = lines[li];
+                    int pos = 0;
+                    while (pos < line.Length)
+                    {
+                        // Siguiente coincidencia de cualquiera de los términos
+                        int best = -1, len = 0;
+                        foreach (var t in terms)
+                        {
+                            int idx = cmp.IndexOf(line, t, pos, opts);
+                            if (idx >= 0 && (best < 0 || idx < best)) { best = idx; len = t.Length; }
+                        }
+                        if (best < 0)
+                        {
+                            para.Inlines.Add(new Run(line[pos..]));
+                            break;
+                        }
+                        if (best > pos) para.Inlines.Add(new Run(line[pos..best]));
+                        var hit = new Run(line.Substring(best, Math.Min(len, line.Length - best)))
+                        {
+                            Background = highlight,
+                            Foreground = Brushes.White,
+                            FontWeight = FontWeights.SemiBold
+                        };
+                        para.Inlines.Add(hit);
+                        first ??= hit;
+                        pos = best + Math.Max(len, 1);
+                    }
+                    if (li < lines.Length - 1) para.Inlines.Add(new LineBreak());
+                }
+                doc.Blocks.Add(para);
+            }
+
+            PreviewText.Document = doc;
+            PreviewText.Visibility = Visibility.Visible;
+            PreviewText.ScrollToHome();
+            if (first != null)
+            {
+                var target = first;
+                Dispatcher.BeginInvoke(new Action(() => target.BringIntoView()), DispatcherPriority.Loaded);
+            }
+        }
+
+        private void Preview_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (Results.SelectedItem is ResultItem item) Open(item, reveal: false);
         }
 
         // ---------------- Teclado y mouse ----------------

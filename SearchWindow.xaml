@@ -87,21 +87,66 @@
                            VerticalAlignment="Center" MaxWidth="220" TextTrimming="CharacterEllipsis"/>
             </Grid>
 
-            <!-- Resultados -->
+            <!-- Resultados + vista previa -->
             <Border x:Name="ResultsArea" BorderBrush="#1FFFFFFF" BorderThickness="0,1,0,0" Visibility="Collapsed">
                 <StackPanel Margin="0,6,0,0">
-                    <ListBox x:Name="Results" MaxHeight="520" Background="Transparent" BorderThickness="0"
-                             Focusable="False" ItemContainerStyle="{StaticResource ResultItemStyle}"
-                             ItemTemplate="{StaticResource ResultTemplate}"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto"
-                             MouseLeftButtonUp="Results_MouseLeftButtonUp"/>
-                    <TextBlock x:Name="EmptyText" Text="Sin resultados" FontSize="13" Margin="24,12"
-                               Foreground="{StaticResource TextSecondary}" Visibility="Collapsed"/>
+                    <Grid x:Name="ResultsGrid" Height="500">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition x:Name="ListColumn" Width="460"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <ListBox x:Name="Results" Background="Transparent" BorderThickness="0"
+                                 Focusable="False" ItemContainerStyle="{StaticResource ResultItemStyle}"
+                                 ItemTemplate="{StaticResource ResultTemplate}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 SelectionChanged="Results_SelectionChanged"
+                                 MouseLeftButtonUp="Results_MouseLeftButtonUp"/>
+                        <TextBlock x:Name="EmptyText" Text="Sin resultados" FontSize="13" Margin="24,12"
+                                   Foreground="{StaticResource TextSecondary}" Visibility="Collapsed"
+                                   Grid.ColumnSpan="2"/>
+
+                        <!-- Vista previa -->
+                        <Grid x:Name="PreviewPane" Grid.Column="1" Margin="6,2,18,4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Border CornerRadius="14" Background="#0DFFFFFF" BorderBrush="#14FFFFFF" BorderThickness="1"
+                                    ClipToBounds="True" Cursor="Hand" MouseLeftButtonUp="Preview_Click"
+                                    ToolTip="Clic para abrir">
+                                <Grid>
+                                    <Image x:Name="PreviewImage" Stretch="Uniform" Margin="12"
+                                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <RichTextBox x:Name="PreviewText" IsReadOnly="True" Focusable="False" IsTabStop="False"
+                                                 Background="Transparent" BorderThickness="0" Padding="14,12"
+                                                 Foreground="#FFE5E5EA" FontSize="12.5" Cursor="Arrow"
+                                                 VerticalScrollBarVisibility="Auto" Visibility="Collapsed"/>
+                                    <TextBlock x:Name="PreviewLoading" Text="Cargando vista previa…" FontSize="12"
+                                               Foreground="{StaticResource TextSecondary}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+                                    <Border x:Name="PageBadge" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                            Margin="0,0,14,12" Background="#CC000000" CornerRadius="8" Padding="8,3"
+                                            Visibility="Collapsed">
+                                        <TextBlock x:Name="PageText" FontSize="11" Foreground="White"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <StackPanel Grid.Row="1" Margin="4,10,4,0">
+                                <TextBlock x:Name="PreviewTitle" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="PreviewInfo" FontSize="11.5" Margin="0,2,0,0"
+                                           Foreground="{StaticResource TextSecondary}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="PreviewPath" FontSize="11" Margin="0,2,0,0"
+                                           Foreground="#FF6E6E76" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
                     <DockPanel Margin="22,8,22,12">
                         <TextBlock x:Name="CountText" DockPanel.Dock="Right" FontSize="11" Foreground="#FF6E6E76"/>
                         <TextBlock FontSize="11" Foreground="#FF6E6E76"
-                                   Text="↵ Abrir     Ctrl+↵ Mostrar en carpeta     Esc Cerrar"/>
+                                   Text="↑↓ Vista previa     ↵ Abrir     Ctrl+↵ Mostrar en carpeta     Esc Cerrar"/>
                     </DockPanel>
                 </StackPanel>
             </Border>

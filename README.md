@@ -17,6 +17,8 @@ Una "Dynamic Island" estilo iPhone en la parte superior de la pantalla que **ref
   - el índice (SQLite FTS5) se guarda en `%LOCALAPPDATA%\DynamicIsland`, se actualiza solo con los cambios del disco y omite carpetas del sistema (Windows, Program Files, AppData, node_modules…);
   - la primera indexación de los discos completos puede tardar; los nombres quedan listos primero y el contenido se lee en segundo plano (lo más reciente primero).
   - Si Alt+Espacio está ocupado (p. ej. PowerToys Run), usa Win+Shift+Espacio.
+  - **OCR:** lee el texto dentro de imágenes (JPG, PNG, capturas, fotos de documentos…) y de las páginas escaneadas de los PDF, con el motor de reconocimiento integrado de Windows (sin internet). Va al final de la cola porque es más lento; se puede apagar desde la bandeja.
+  - **Vista previa:** al moverte por los resultados se muestra el archivo a la derecha — imágenes, la página del PDF donde está la coincidencia, el texto de Word/Excel/código con las palabras resaltadas, o la miniatura de Windows para lo demás (videos, etc.). Clic en la vista previa para abrir.
 - Clic en una notificación → abre la app. Clic derecho → descartar.
 
 > Nota: Windows no permite que otras apps usen el botón "Responder" de una notificación, así que para contestar se abre la app al hacer clic.
@@ -46,7 +48,10 @@ Es un solo `.exe`; no necesitas instalar .NET.
 | `NotificationService.cs` | Sondea cada segundo las notificaciones con `UserNotificationListener`; respaldo leyendo `wpndatabase.db` |
 | `SearchIndex.cs` | Índice de texto completo de los discos (rastreo, vigilancia de cambios, búsqueda) |
 | `TextExtractor.cs` | Lee el texto de PDF, Office, OpenDocument, RTF, HTML y texto plano |
-| `SearchWindow.xaml(.cs)` | Barra tipo Spotlight y atajo global |
+| `SearchWindow.xaml(.cs)` | Barra tipo Spotlight, vista previa y atajo global |
+| `OcrService.cs` | OCR de imágenes y PDF escaneados (Windows.Media.Ocr) |
+| `PreviewService.cs` | Prepara la vista previa: imagen, página de PDF, texto o miniatura |
+| `AppSettings.cs` | Ajustes guardados (OCR activado) |
 | `MediaService.cs` | Música en curso y controles (GlobalSystemMediaTransportControls) |
 | `IslandWindow.xaml(.cs)` | La isla: estados compacta / banner / historial y animaciones |
 | `App.xaml.cs` | Arranque, instancia única y menú de la bandeja |
