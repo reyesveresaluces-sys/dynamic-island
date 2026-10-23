@@ -75,6 +75,53 @@ namespace DynamicIsland
             Changed?.Invoke();
         }
 
+        /// <summary>Guarda un diseño del editor y lo aplica a esa pantalla.</summary>
+        public void SaveCustom(CustomZoneLayout layout, string screenId)
+        {
+            var list = AppSettings.Current.CustomLayouts;
+            int i = list.FindIndex(c => c.Id == layout.Id);
+            if (i >= 0) list[i] = layout; else list.Add(layout);
+            AppSettings.Current.ZoneLayoutByScreen[screenId] = layout.Key;
+            AppSettings.Current.Save();
+            Changed?.Invoke();
+        }
+
+        /// <summary>Borra un diseño propio; las pantallas que lo usaban vuelven a la disposición normal.</summary>
+        public void DeleteCustom(string id)
+        {
+            var list = AppSettings.Current.CustomLayouts;
+            list.RemoveAll(c => c.Id == id);
+            string key = "custom:" + id;
+            foreach (var screen in AppSettings.Current.ZoneLayoutByScreen.Where(p => p.Value == key).Select(p => p.Key).ToList())
+                AppSettings.Current.ZoneLayoutByScreen[screen] = ZoneLayouts.DefaultKey;
+            AppSettings.Current.Save();
+            Changed?.Invoke();
+        }
+
+        private ZoneEditorWindow? _editor;
+
+        /// <summary>El editor de zonas está abierto (la isla no debe taparlo).</summary>
+        public bool EditorOpen => _editor != null;
+
+        /// <summary>Abre el editor de zonas sobre esa pantalla (parte del diseño que tenga puesto, o del que se indique).</summary>
+        public void OpenEditor(string screenId, string? editKey = null)
+        {
+            var screen = ScreenById(screenId) ?? Forms.Screen.PrimaryScreen;
+            if (screen == null) return;
+            if (_editor != null) { _editor.Activate(); return; }
+
+            var layout = ZoneLayouts.Get(editKey ?? LayoutFor(screenId).Key);
+            string? id = layout.Key.StartsWith("custom:", StringComparison.OrdinalIgnoreCase) ? layout.Key[7..] : null;
+            string name = id != null ? layout.Name : "Mi diseño";
+
+            var editor = new ZoneEditorWindow(screen, layout.Zones, name, id);
+            _editor = editor;
+            editor.Closed += (_, _) => _editor = null;
+            editor.Saved += l => SaveCustom(l, screenId);
+            editor.Show();
+            editor.Activate();
+        }
+
         public static Forms.Screen? ScreenById(string id)
         {
             foreach (var s in Forms.Screen.AllScreens) if (s.DeviceName == id) return s;
@@ -191,9 +238,15 @@ namespace DynamicIsland
 
             var screen = Forms.Screen.FromPoint(new System.Drawing.Point(p.X, p.Y));
             var zones = ZonesFor(screen.DeviceName);
+            // Si hay zonas superpuestas, gana la más pequeña que contiene al cursor
             int hit = -1;
+            double hitArea = double.MaxValue;
             for (int i = 0; i < zones.Count; i++)
-                if (zones[i].Contains(p.X, p.Y)) { hit = i; break; }
+            {
+                if (!zones[i].Contains(p.X, p.Y)) continue;
+                double area = zones[i].Width * zones[i].Height;
+                if (area < hitArea) { hitArea = area; hit = i; }
+            }
 
             // Si el cursor cayó justo en la separación entre zonas, vale la más cercana
             if (hit < 0)
@@ -390,6 +443,7 @@ namespace DynamicIsland
             foreach (var h in _hooks) if (h != IntPtr.Zero) UnhookWinEvent(h);
             foreach (var id in new[] { HotkeyLeft, HotkeyRight, HotkeyUp }) UnregisterHotKey(_window.Handle, id);
             foreach (var o in _overlays.Values) o.Close();
+            _editor?.Close();
             _window.Dispose();
         }
 

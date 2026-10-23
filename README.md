@@ -40,6 +40,7 @@ Al pasar el mouse, la isla se expande y muestra **espacios**. Se cambian con la 
   - Con **Ctrl** mientras arrastras, la ventana **abarca varias zonas** (pasa el cursor por las que quieras).
   - En el espacio *Zonas* puedes cambiarlo a **Siempre** (sin Shift) o **Apagadas**; también desde la bandeja.
 - **Disposiciones:** Enfoque, Columnas, Tres columnas, Filas, Cuadrícula, Prioridad, Prioridad central, Ancha + lateral, y una **cuadrícula a tu medida** (hasta 6 × 4). **Cada monitor tiene la suya** y se recuerda.
+- **Editor de zonas (diseño libre):** el mosaico *Personalizar* del espacio *Zonas* (o la bandeja → *Editor de zonas…*) abre un lienzo sobre el monitor donde **dibujas las zonas a mano**: arrastra para mover, las esquinas para redimensionar, ✕ para quitar, doble clic en el fondo para crear una. **Pueden superponerse** (al arrastrar una ventana gana la zona más pequeña bajo el cursor). Los bordes se imantan a los de la pantalla y a los de las otras zonas. Guarda **varios diseños con nombre**: quedan como mosaicos para alternarlos, y con clic derecho se editan o se eliminan.
 - **Separación** entre zonas ajustable (0–40 px).
 - **Teclado:** `Ctrl+Alt+←/→` mueve la ventana activa de zona en zona (al llegar al borde pasa al siguiente monitor) y `Ctrl+Alt+↑` la manda a la primera zona.
 - **Clic:** en el espacio *Zonas*, la vista previa del monitor manda la última ventana activa a la zona que toques.
@@ -86,6 +87,7 @@ Es un solo `.exe`; no necesitas instalar .NET.
 | `ZoneService.cs` | Zonas de ventanas: detecta el arrastre, ajusta la ventana a la zona y atajos de teclado |
 | `ZoneLayouts.cs` | Disposiciones de zonas (predefinidas y cuadrículas a medida) |
 | `ZoneOverlayWindow.cs` | Capa transparente que dibuja las zonas sobre el monitor mientras arrastras |
+| `ZoneEditorWindow.xaml(.cs)` | Editor de diseños: dibujar, mover y redimensionar zonas a mano |
 | `ZonesSpace` | El espacio *Zonas* de la isla: elegir disposición, separación y enviar ventanas |
 | `MediaService.cs` | Música en curso, controles y línea de tiempo (GlobalSystemMediaTransportControls) |
 | `MediaSpace` / `ClipboardSpace` / `LauncherSpace` / `TimerSpace` / `ZonesSpace` | Los espacios de la isla expandida |

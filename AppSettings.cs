@@ -35,6 +35,8 @@ namespace DynamicIsland
         public int ZoneSpacing { get; set; } = 10;
         /// <summary>Disposición por monitor (Screen.DeviceName → clave de la disposición).</summary>
         public Dictionary<string, string> ZoneLayoutByScreen { get; set; } = new();
+        /// <summary>Diseños hechos en el editor de zonas.</summary>
+        public List<CustomZoneLayout> CustomLayouts { get; set; } = new();
 
         private static readonly string FilePath = Path.Combine(SearchIndex.DataDir, "settings.json");
         public static AppSettings Current { get; } = Load();

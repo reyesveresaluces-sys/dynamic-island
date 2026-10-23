@@ -295,6 +295,8 @@ namespace DynamicIsland
 
         private void KeepOnTop()
         {
+            // Mientras el editor de zonas está abierto, la isla no se pone encima de él
+            if (IslandTools.Zones.EditorOpen) return;
             foreach (var w in _islands) w.BringToTop();
         }
 
@@ -396,6 +398,13 @@ namespace DynamicIsland
             var zonesOpen = new Forms.ToolStripMenuItem("Elegir disposición…");
             zonesOpen.Click += (_, _) => IslandAtCursor()?.OpenPinned(keyboard: true, space: IslandSpace.Zones);
             zonesMenu.DropDownItems.Add(zonesOpen);
+            var zonesEdit = new Forms.ToolStripMenuItem("Editor de zonas…");
+            zonesEdit.Click += (_, _) =>
+            {
+                var island = IslandAtCursor();
+                if (island != null) IslandTools.Zones.OpenEditor(island.ScreenId);
+            };
+            zonesMenu.DropDownItems.Add(zonesEdit);
             menu.Items.Add(zonesMenu);
             menu.Items.Add(new Forms.ToolStripSeparator());
 

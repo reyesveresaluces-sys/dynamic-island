@@ -1,0 +1,41 @@
+<Window x:Class="DynamicIsland.ZoneEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Editor de zonas" WindowStyle="None" AllowsTransparency="True" ShowInTaskbar="False"
+        Topmost="True" ResizeMode="NoResize" WindowStartupLocation="Manual"
+        Background="#C210101A" FontFamily="Segoe UI Variable Text, Segoe UI"
+        Width="800" Height="600">
+    <Grid>
+        <!-- Lienzo con las zonas -->
+        <Canvas x:Name="Board" ClipToBounds="True" Background="Transparent"
+                MouseLeftButtonDown="Board_MouseLeftButtonDown"/>
+
+        <!-- Barra de herramientas -->
+        <Border VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,24,0,0"
+                CornerRadius="20" Background="#F2191920" Padding="14,10" BorderThickness="1" BorderBrush="#26FFFFFF">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Diseño" FontSize="12" Foreground="{StaticResource TextSecondary}"
+                           VerticalAlignment="Center" Margin="2,0,8,0"/>
+                <TextBox x:Name="NameBox" Width="170" Height="28" VerticalContentAlignment="Center"
+                         FontSize="12.5" Padding="8,0" Foreground="White" CaretBrush="White"
+                         Background="#1FFFFFFF" BorderBrush="#33FFFFFF" BorderThickness="1"
+                         MaxLength="40" Margin="0,0,10,0"/>
+                <Button Content="+ Zona" Style="{StaticResource PillButton}" Click="Add_Click"
+                        ToolTip="Agregar una zona nueva" Margin="0,0,6,0"/>
+                <Button x:Name="GridButton" Content="Cuadrícula" Style="{StaticResource PillButton}" Click="FromGrid_Click"
+                        ToolTip="Empezar desde una cuadrícula pareja" Margin="0,0,6,0"/>
+                <Border Width="1" Background="#26FFFFFF" Margin="4,2,10,2"/>
+                <Button Content="Guardar" Style="{StaticResource AccentButton}" Click="Save_Click" Margin="0,0,6,0"/>
+                <Button Content="Cancelar" Style="{StaticResource PillButton}" Click="Cancel_Click"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Ayuda -->
+        <Border VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,30"
+                CornerRadius="16" Background="#B3191920" Padding="14,8">
+            <TextBlock x:Name="Hint" FontSize="11.5" Foreground="{StaticResource TextSecondary}"
+                       TextAlignment="Center"
+                       Text="Arrastra una zona para moverla · las esquinas la redimensionan · ✕ la quita · doble clic en el fondo crea una · las zonas pueden superponerse · Esc cancela"/>
+        </Border>
+    </Grid>
+</Window>

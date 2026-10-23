@@ -67,6 +67,7 @@ namespace DynamicIsland
             var grid = ZoneLayouts.Get(selectedKey);
             if (grid.Key.StartsWith("grid:")) all.Add(grid);
             else { var (c, r) = ZoneLayouts.GridSize(null); all.Add(ZoneLayouts.Grid(c, r)); }
+            foreach (var c in ZoneLayouts.Saved) all.Add(c.ToLayout());
 
             foreach (var l in all)
             {
@@ -112,8 +113,75 @@ namespace DynamicIsland
                 tile.MouseLeftButtonUp += (s, _) => Z.SetLayout(_screenId, (string)((FrameworkElement)s).Tag);
                 tile.MouseEnter += (s, _) => { if (((Border)s).Tag as string != selectedKey) ((Border)s).Background = (Brush)FindResource("ItemHover"); };
                 tile.MouseLeave += (s, _) => { if (((Border)s).Tag as string != selectedKey) ((Border)s).Background = (Brush)FindResource("Surface"); };
+
+                // Los diseños propios se pueden editar o borrar con el botón derecho
+                if (l.Key.StartsWith("custom:"))
+                {
+                    string id = l.Key[7..];
+                    var menu = new ContextMenu();
+                    var edit = new MenuItem { Header = "Editar…" };
+                    edit.Click += (_, _) => Z.OpenEditor(_screenId, "custom:" + id);
+                    var del = new MenuItem { Header = "Eliminar" };
+                    del.Click += (_, _) => Z.DeleteCustom(id);
+                    menu.Items.Add(edit);
+                    menu.Items.Add(del);
+                    tile.ContextMenu = menu;
+                    tile.ToolTip = l.Name + " — clic derecho para editar o eliminar";
+                }
+
                 LayoutTiles.Children.Add(tile);
             }
+
+            LayoutTiles.Children.Add(EditorTile());
+        }
+
+        /// <summary>Mosaico final: abre el editor para dibujar las zonas a mano.</summary>
+        private Border EditorTile()
+        {
+            var canvas = new Canvas { Width = 44, Height = 26 };
+            foreach (var r in new[] { new Rect(0, 0, 0.56, 1), new Rect(0.6, 0, 0.4, 0.55), new Rect(0.44, 0.62, 0.56, 0.38) })
+            {
+                var box = new Border
+                {
+                    Width = Math.Max(2, r.Width * 44 - 2),
+                    Height = Math.Max(2, r.Height * 26 - 2),
+                    CornerRadius = new CornerRadius(2),
+                    Background = TileZone,
+                    BorderBrush = TileZoneOn,
+                    BorderThickness = new Thickness(0.6)
+                };
+                Canvas.SetLeft(box, r.X * 44 + 1);
+                Canvas.SetTop(box, r.Y * 26 + 1);
+                canvas.Children.Add(box);
+            }
+
+            var tile = new Border
+            {
+                Width = 58,
+                Padding = new Thickness(0, 5, 0, 4),
+                Margin = new Thickness(0, 0, 4, 4),
+                CornerRadius = new CornerRadius(12),
+                Background = (Brush)FindResource("Surface"),
+                Cursor = Cursors.Hand,
+                ToolTip = "Dibujar las zonas a mano (se pueden superponer)",
+                Child = new StackPanel
+                {
+                    Children =
+                    {
+                        canvas,
+                        new TextBlock
+                        {
+                            Text = "Personalizar", FontSize = 9.5, Margin = new Thickness(3, 3, 3, 0),
+                            TextAlignment = TextAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis,
+                            Foreground = (Brush)FindResource("TextSecondary")
+                        }
+                    }
+                }
+            };
+            tile.MouseLeftButtonUp += (_, _) => Z.OpenEditor(_screenId);
+            tile.MouseEnter += (s, _) => ((Border)s).Background = (Brush)FindResource("ItemHover");
+            tile.MouseLeave += (s, _) => ((Border)s).Background = (Brush)FindResource("Surface");
+            return tile;
         }
 
         private void Grid_Click(object sender, RoutedEventArgs e)

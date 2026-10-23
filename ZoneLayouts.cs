@@ -34,7 +34,31 @@ namespace DynamicIsland
         }
     }
 
-    /// <summary>Disposiciones predefinidas y cuadrículas personalizadas ("grid:3x2").</summary>
+    /// <summary>Una zona guardada, en fracciones 0–1 del área de trabajo (apta para JSON).</summary>
+    public sealed class ZoneBox
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double W { get; set; }
+        public double H { get; set; }
+
+        public Rect ToRect() => new(X, Y, Math.Max(0.01, W), Math.Max(0.01, H));
+    }
+
+    /// <summary>Un diseño hecho a mano en el editor: zonas libres, que pueden superponerse.</summary>
+    public sealed class CustomZoneLayout
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+        public string Name { get; set; } = "Mi diseño";
+        public List<ZoneBox> Zones { get; set; } = new();
+
+        public string Key => "custom:" + Id;
+
+        public ZoneLayout ToLayout() =>
+            new(Key, Name, Zones.ConvertAll(z => z.ToRect()));
+    }
+
+    /// <summary>Disposiciones predefinidas, cuadrículas ("grid:3x2") y diseños propios ("custom:ab12cd34").</summary>
     public static class ZoneLayouts
     {
         public const string DefaultKey = "columns2";
@@ -51,11 +75,21 @@ namespace DynamicIsland
             new ZoneLayout("wide", "Ancha + lateral", new[] { new Rect(0, 0, 0.7, 1), new Rect(0.7, 0, 0.3, 1) })
         };
 
-        /// <summary>Devuelve la disposición de una clave; "grid:CxR" crea una cuadrícula.</summary>
+        /// <summary>Los diseños hechos en el editor, en el orden guardado.</summary>
+        public static List<CustomZoneLayout> Saved => AppSettings.Current.CustomLayouts;
+
+        /// <summary>Devuelve la disposición de una clave; "grid:CxR" crea una cuadrícula y "custom:id" busca un diseño propio.</summary>
         public static ZoneLayout Get(string? key)
         {
             if (string.IsNullOrEmpty(key)) key = DefaultKey;
             foreach (var p in Presets) if (p.Key == key) return p;
+
+            if (key.StartsWith("custom:", StringComparison.OrdinalIgnoreCase))
+            {
+                string id = key[7..];
+                foreach (var c in Saved)
+                    if (c.Id == id && c.Zones.Count > 0) return c.ToLayout();
+            }
 
             if (key.StartsWith("grid:", StringComparison.OrdinalIgnoreCase))
             {
