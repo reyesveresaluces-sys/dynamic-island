@@ -41,6 +41,9 @@ namespace DynamicIsland
         /// <summary>Debe llamarse en el hilo de la interfaz.</summary>
         public static ImageSource? Get(string path)
         {
+            // Carpetas y unidades: su ícono real (puede ser personalizado)
+            if (Directory.Exists(path)) return Cache.GetOrAdd("dir:" + path, _ => Load(path, true));
+
             string ext = Path.GetExtension(path).ToLowerInvariant();
             string key = PerFile(ext) ? path : (string.IsNullOrEmpty(ext) ? "<none>" : ext);
             return Cache.GetOrAdd(key, _ => Load(path, PerFile(ext)));

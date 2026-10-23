@@ -21,6 +21,24 @@ Una "Dynamic Island" estilo iPhone en la parte superior de la pantalla que **ref
   - **Vista previa:** al moverte por los resultados se muestra el archivo a la derecha — imágenes, la página del PDF donde está la coincidencia, el texto de Word/Excel/código con las palabras resaltadas, o la miniatura de Windows para lo demás (videos, etc.). Clic en la vista previa para abrir.
 - Clic en una notificación → abre la app. Clic derecho → descartar.
 
+### Espacios (estilo "edge dock")
+
+Al pasar el mouse, la isla se expande y muestra **espacios**. Se cambian con la **rueda del mouse** (o deslizando de lado en el touchpad), con las pestañas, o con ←/→ y 1–5 si la abriste con el teclado:
+
+| Espacio | Qué hace |
+|---|---|
+| 🔔 Notificaciones | Historial de las últimas notificaciones |
+| 🎵 Música | Portada, **barra de avance** para saltar en la canción, anterior/pausa/siguiente y **volumen general** (también con la rueda sobre la barra) |
+| 📋 Portapapeles | Historial de lo que copias — texto, enlaces, imágenes y archivos — con **búsqueda**, filtros y elementos **fijados** que se conservan. Clic en un elemento = copiarlo de nuevo. Respeta a los gestores de contraseñas que piden no registrar su contenido |
+| 🚀 Apps | Lanzador de apps, archivos y carpetas **sin límite**. Arrastra cualquier cosa sobre la isla para agregarla; clic derecho para ordenar o quitar |
+| ⏱️ Temporizador | Temporizador con atajos (1, 5, 10, 25, 60 min) y cronómetro con vueltas. Mientras corren, la isla compacta muestra la cuenta |
+
+**Abrir sin el mouse:** `Ctrl+Alt+Espacio` (o `Win+Alt+Espacio` si está ocupado), o **Magic Shake**: agita el mouse de lado a lado.
+
+**Posición:** arriba al centro, o como una hoja delgada en el **borde izquierdo** o **derecho** de cada pantalla (bandeja → *Posición de la isla*).
+
+Las animaciones usan física de resorte.
+
 > Nota: Windows no permite que otras apps usen el botón "Responder" de una notificación, así que para contestar se abre la app al hacer clic.
 - Ícono en la bandeja del sistema: pausar banners (No molestar), duración del banner, iniciar con Windows, probar la isla, salir.
 
@@ -53,7 +71,14 @@ Es un solo `.exe`; no necesitas instalar .NET.
 | `PreviewService.cs` | Prepara la vista previa: imagen, página de PDF, texto o miniatura |
 | `AppSettings.cs` | Ajustes guardados (OCR activado) |
 | `NotificationActivation.cs` | Al hacer clic, abre la notificación como Windows: pasa su orden original al activador de la app (p. ej. abre el chat exacto en WhatsApp Web). Registro en `%LOCALAPPDATA%\DynamicIsland\clicks.log` |
-| `MediaService.cs` | Música en curso y controles (GlobalSystemMediaTransportControls) |
+| `MediaService.cs` | Música en curso, controles y línea de tiempo (GlobalSystemMediaTransportControls) |
+| `MediaSpace` / `ClipboardSpace` / `LauncherSpace` / `TimerSpace` | Los espacios de la isla expandida |
+| `ClipboardService.cs` | Historial del portapapeles y elementos fijados |
+| `LauncherStore.cs` | Accesos rápidos del lanzador |
+| `TimerTools.cs` | Temporizador y cronómetro compartidos |
+| `VolumeService.cs` | Volumen general (Core Audio) |
+| `IslandTriggers.cs` | Atajo global y Magic Shake |
+| `SpringEase.cs` | Curva de animación de resorte |
 | `IslandWindow.xaml(.cs)` | La isla: estados compacta / banner / historial y animaciones |
 | `App.xaml.cs` | Arranque, instancia única y menú de la bandeja |
 | `StartupManager.cs` | Inicio con Windows (registro `HKCU\...\Run`) |

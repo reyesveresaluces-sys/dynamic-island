@@ -26,6 +26,26 @@ namespace DynamicIsland
         public string AppId { get; private set; } = "";
         public ImageSource? Art { get; private set; }
 
+        // Línea de tiempo (para la barra de avance)
+        public TimeSpan Duration { get; private set; }
+        public bool CanSeek { get; private set; }
+        private TimeSpan _start, _position;
+        private DateTimeOffset _positionUpdated;
+
+        /// <summary>Posición actual estimada (el reproductor solo la reporta de vez en cuando).</summary>
+        public TimeSpan Position
+        {
+            get
+            {
+                var p = _position;
+                if (IsPlaying && _positionUpdated != default)
+                    p += DateTimeOffset.Now - _positionUpdated;
+                if (p < TimeSpan.Zero) p = TimeSpan.Zero;
+                if (Duration > TimeSpan.Zero && p > Duration) p = Duration;
+                return p;
+            }
+        }
+
         private readonly Dispatcher _ui;
         private GlobalSystemMediaTransportControlsSessionManager? _manager;
         private GlobalSystemMediaTransportControlsSession? _session;
@@ -57,12 +77,52 @@ namespace DynamicIsland
         private void OnPlaybackInfoChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args)
             => _ui.InvokeAsync(RefreshAsync);
 
+        private void OnTimelineChanged(GlobalSystemMediaTransportControlsSession sender, TimelinePropertiesChangedEventArgs args)
+            => _ui.InvokeAsync(ReadTimeline);
+
+        private void ReadTimeline()
+        {
+            var s = _session;
+            if (s == null) { Duration = TimeSpan.Zero; CanSeek = false; return; }
+            try
+            {
+                var t = s.GetTimelineProperties();
+                _start = t.StartTime;
+                Duration = t.EndTime - t.StartTime;
+                _position = t.Position - t.StartTime;
+                _positionUpdated = t.LastUpdatedTime;
+                CanSeek = Duration > TimeSpan.Zero && (s.GetPlaybackInfo()?.Controls?.IsPlaybackPositionEnabled ?? false);
+            }
+            catch
+            {
+                Duration = TimeSpan.Zero;
+                CanSeek = false;
+            }
+        }
+
+        /// <summary>Salta a un punto de la canción o video.</summary>
+        public async void Seek(TimeSpan position)
+        {
+            var s = _session;
+            if (s == null || !CanSeek) return;
+            try
+            {
+                if (await s.TryChangePlaybackPositionAsync((_start + position).Ticks))
+                {
+                    _position = position;
+                    _positionUpdated = DateTimeOffset.Now;
+                }
+            }
+            catch { }
+        }
+
         private void Attach(GlobalSystemMediaTransportControlsSession? session)
         {
             if (_session != null)
             {
                 _session.MediaPropertiesChanged -= OnMediaPropertiesChanged;
                 _session.PlaybackInfoChanged -= OnPlaybackInfoChanged;
+                _session.TimelinePropertiesChanged -= OnTimelineChanged;
             }
 
             _session = session;
@@ -77,6 +137,7 @@ namespace DynamicIsland
 
             _session.MediaPropertiesChanged += OnMediaPropertiesChanged;
             _session.PlaybackInfoChanged += OnPlaybackInfoChanged;
+            _session.TimelinePropertiesChanged += OnTimelineChanged;
             AppId = _session.SourceAppUserModelId ?? "";
             AppName = NotificationService.PrettyAppName(AppId);
             _ = RefreshAsync();
@@ -92,7 +153,11 @@ namespace DynamicIsland
                 var playback = s.GetPlaybackInfo();
                 if (s != _session) return; // cambió la sesión mientras esperábamos
 
-                IsPlaying = playback?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+                // Al pausar, fijar la posición estimada antes de que deje de avanzar
+                bool playing = playback?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+                if (IsPlaying && !playing) { _position = Position; _positionUpdated = DateTimeOffset.Now; }
+                IsPlaying = playing;
+                ReadTimeline();
                 string title = props?.Title ?? "";
                 string artist = props?.Artist ?? "";
                 if (string.IsNullOrWhiteSpace(artist)) artist = props?.AlbumArtist ?? "";

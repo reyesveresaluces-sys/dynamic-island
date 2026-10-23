@@ -6,83 +6,12 @@
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
         ShowActivated="False"
-        Width="460" Height="440"
+        Width="490" Height="560"
         FontFamily="Segoe UI Variable Text, Segoe UI"
         TextOptions.TextFormattingMode="Display">
 
     <Window.Resources>
-        <SolidColorBrush x:Key="IslandBg" Color="#F2050506"/>
-        <SolidColorBrush x:Key="TextPrimary" Color="#FFF5F5F7"/>
-        <SolidColorBrush x:Key="TextSecondary" Color="#FF9A9AA2"/>
-        <SolidColorBrush x:Key="ItemHover" Color="#22FFFFFF"/>
-
-        <!-- Botón plano redondeado -->
-        <Style x:Key="PillButton" TargetType="Button">
-            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Focusable" Value="False"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="#1AFFFFFF" CornerRadius="10" Padding="10,3">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#33FFFFFF"/>
-                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource PillButton}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="Transparent" CornerRadius="9" Width="18" Height="18">
-                            <TextBlock Text="✕" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{TemplateBinding Foreground}"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#33FFFFFF"/>
-                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Botón de ícono para los controles de música -->
-        <Style x:Key="IconButton" TargetType="Button">
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
-            <Setter Property="FontSize" Value="15"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Focusable" Value="False"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="Transparent" CornerRadius="16" Width="32" Height="32">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#26FFFFFF"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#40FFFFFF"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <SolidColorBrush x:Key="IslandBg" Color="#F5050506"/>
 
         <!-- Avatar: ícono de la app o inicial con color -->
         <DataTemplate x:Key="AvatarTemplate" DataType="{x:Type local:IslandNotification}">
@@ -99,7 +28,7 @@
             </Grid>
         </DataTemplate>
 
-        <!-- Elemento del historial -->
+        <!-- Elemento del historial de notificaciones -->
         <DataTemplate x:Key="HistoryItem" DataType="{x:Type local:IslandNotification}">
             <Border x:Name="Row" Background="Transparent" CornerRadius="14" Padding="8,7" Margin="0,1"
                     Cursor="Hand" Tag="{Binding}" MouseLeftButtonUp="HistoryItem_Click">
@@ -140,15 +69,19 @@
                 HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,8,0,0"
                 Width="150" Height="34" CornerRadius="17"
                 Background="{StaticResource IslandBg}"
-                BorderBrush="#14FFFFFF" BorderThickness="1"
-                MouseEnter="Pill_MouseEnter" MouseLeave="Pill_MouseLeave">
+                BorderBrush="#17FFFFFF" BorderThickness="1"
+                AllowDrop="True"
+                MouseEnter="Pill_MouseEnter" MouseLeave="Pill_MouseLeave"
+                PreviewMouseWheel="Pill_MouseWheel"
+                DragEnter="Pill_DragEnter" DragOver="Pill_DragOver" DragLeave="Pill_DragLeave" Drop="Pill_Drop"
+                ContextMenuOpening="Pill_ContextMenuOpening" ContextMenuClosing="Pill_ContextMenuClosing">
             <Border.Effect>
-                <DropShadowEffect BlurRadius="20" ShadowDepth="3" Direction="270" Opacity="0.5" Color="Black"/>
+                <DropShadowEffect BlurRadius="22" ShadowDepth="3" Direction="270" Opacity="0.55" Color="Black"/>
             </Border.Effect>
 
             <Grid ClipToBounds="True">
 
-                <!-- 1) Estado compacto: (portada) + reloj + contador / ecualizador -->
+                <!-- 1a) Compacta arriba: (portada) + reloj/temporizador + contador / ecualizador -->
                 <Grid x:Name="CollapsedView" Margin="16,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -163,9 +96,9 @@
                     </Border>
                     <TextBlock x:Name="ClockText" Grid.Column="1" Text="00:00" FontSize="13" FontWeight="SemiBold"
                                Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"
-                               HorizontalAlignment="Left"/>
+                               HorizontalAlignment="Left" Typography.NumeralAlignment="Tabular"/>
                     <Grid Grid.Column="2" VerticalAlignment="Center">
-                        <Border x:Name="UnreadBadge" Background="#FF0A84FF" CornerRadius="9" MinWidth="18" Height="18"
+                        <Border x:Name="UnreadBadge" Background="{StaticResource Accent}" CornerRadius="9" MinWidth="18" Height="18"
                                 Padding="5,0" Visibility="Collapsed">
                             <TextBlock x:Name="UnreadText" Text="0" FontSize="11" FontWeight="Bold" Foreground="White"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -175,6 +108,29 @@
                         <Ellipse x:Name="IdleDot" Width="7" Height="7" Fill="#FF30D158"/>
                     </Grid>
                 </Grid>
+
+                <!-- 1b) Compacta en un borde lateral (hoja vertical) -->
+                <StackPanel x:Name="CollapsedSideView" VerticalAlignment="Center" HorizontalAlignment="Center"
+                            Visibility="Collapsed" Opacity="0">
+                    <Border x:Name="SideArt" Width="18" Height="18" CornerRadius="5" Margin="0,0,0,8"
+                            HorizontalAlignment="Center" Visibility="Collapsed">
+                        <Border.Background>
+                            <ImageBrush x:Name="SideArtBrush" Stretch="UniformToFill"/>
+                        </Border.Background>
+                    </Border>
+                    <Grid HorizontalAlignment="Center">
+                        <Border x:Name="SideBadge" Background="{StaticResource Accent}" CornerRadius="8" MinWidth="16" Height="16"
+                                Padding="3,0" Visibility="Collapsed">
+                            <TextBlock x:Name="SideBadgeText" Text="0" FontSize="10" FontWeight="Bold" Foreground="White"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel x:Name="SideEqBars" Orientation="Horizontal" Height="14" Visibility="Collapsed"/>
+                        <Ellipse x:Name="SideDot" Width="7" Height="7" Fill="#FF30D158"/>
+                    </Grid>
+                    <TextBlock x:Name="SideTimerText" FontSize="9.5" FontWeight="SemiBold" Margin="0,8,0,0"
+                               HorizontalAlignment="Center" Foreground="#FFFF9F0A" Visibility="Collapsed"
+                               Typography.NumeralAlignment="Tabular"/>
+                </StackPanel>
 
                 <!-- 2) Banner de notificación entrante -->
                 <Grid x:Name="BannerView" Margin="14,12" Visibility="Collapsed" Opacity="0"
@@ -200,65 +156,55 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- 3) Historial al pasar el mouse -->
-                <Grid x:Name="HistoryView" Margin="12,10,12,12" Visibility="Collapsed" Opacity="0">
+                <!-- 3) Expandida: espacios -->
+                <Grid x:Name="ExpandedView" Margin="14,10,14,14" Visibility="Collapsed" Opacity="0">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Tarjeta de música -->
-                    <Border x:Name="MusicCard" Grid.Row="1" Background="#14FFFFFF" CornerRadius="16"
-                            Padding="10" Margin="0,0,0,8" Visibility="Collapsed">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="56"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Border Width="56" Height="56" CornerRadius="10" Background="#26FFFFFF">
-                                <TextBlock Text="&#xE8D6;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                           FontSize="22" Foreground="{StaticResource TextSecondary}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <Border x:Name="BigArt" Width="56" Height="56" CornerRadius="10">
-                                <Border.Background>
-                                    <ImageBrush x:Name="BigArtBrush" Stretch="UniformToFill"/>
-                                </Border.Background>
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="12,0,6,0" VerticalAlignment="Center">
-                                <TextBlock x:Name="MusicTitle" FontSize="14" FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock x:Name="MusicArtist" FontSize="12" Foreground="#FFC7C7CC"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <TextBlock x:Name="MusicApp" FontSize="11" Foreground="{StaticResource TextSecondary}"
-                                           TextTrimming="CharacterEllipsis"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Style="{StaticResource IconButton}" Content="&#xE892;" ToolTip="Anterior"
-                                        Click="MusicPrev_Click"/>
-                                <Button Style="{StaticResource IconButton}" ToolTip="Reproducir / Pausar"
-                                        Click="MusicPlayPause_Click" FontSize="18">
-                                    <TextBlock x:Name="PlayPauseGlyph" Text="&#xE768;"/>
-                                </Button>
-                                <Button Style="{StaticResource IconButton}" Content="&#xE893;" ToolTip="Siguiente"
-                                        Click="MusicNext_Click"/>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                    <DockPanel Margin="6,2,2,8">
-                        <Button DockPanel.Dock="Right" Content="Limpiar" Style="{StaticResource PillButton}"
-                                Click="ClearAll_Click"/>
-                        <TextBlock x:Name="HistoryHeader" Text="Notificaciones" FontSize="15" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+                    <!-- Pestañas (también se cambian con la rueda del mouse) -->
+                    <DockPanel Margin="0,0,0,10">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="ClearButton" Content="Limpiar" Style="{StaticResource PillButton}"
+                                    Margin="0,0,8,0" Click="ClearAll_Click"/>
+                            <TextBlock x:Name="SpaceTitle" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel x:Name="Tabs" Orientation="Horizontal">
+                            <RadioButton x:Name="TabNotifications" Style="{StaticResource TabButton}" Content="&#xEA8F;"
+                                         ToolTip="Notificaciones" Checked="Tab_Checked"/>
+                            <RadioButton x:Name="TabMedia" Style="{StaticResource TabButton}" Content="&#xE8D6;"
+                                         ToolTip="Música y volumen" Checked="Tab_Checked"/>
+                            <RadioButton x:Name="TabClipboard" Style="{StaticResource TabButton}" Content="&#xE77F;"
+                                         ToolTip="Portapapeles" Checked="Tab_Checked"/>
+                            <RadioButton x:Name="TabLauncher" Style="{StaticResource TabButton}" Content="&#xE71D;"
+                                         ToolTip="Apps y carpetas" Checked="Tab_Checked"/>
+                            <RadioButton x:Name="TabTimer" Style="{StaticResource TabButton}" Content="&#xE916;"
+                                         ToolTip="Temporizador y cronómetro" Checked="Tab_Checked"/>
+                        </StackPanel>
                     </DockPanel>
-                    <TextBlock x:Name="EmptyText" Grid.Row="2" Text="Sin notificaciones recientes"
-                               Foreground="{StaticResource TextSecondary}" FontSize="12.5"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Hidden" Focusable="False">
-                        <ItemsControl x:Name="HistoryList" ItemTemplate="{StaticResource HistoryItem}"/>
-                    </ScrollViewer>
+
+                    <Grid x:Name="SpaceHost" Grid.Row="1">
+                        <Grid.RenderTransform>
+                            <TranslateTransform x:Name="SpaceShift"/>
+                        </Grid.RenderTransform>
+
+                        <!-- Notificaciones -->
+                        <Grid x:Name="NotificationsSpace">
+                            <TextBlock x:Name="EmptyText" Text="Sin notificaciones recientes"
+                                       Foreground="{StaticResource TextSecondary}" FontSize="12.5"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ScrollViewer VerticalScrollBarVisibility="Hidden" Focusable="False">
+                                <ItemsControl x:Name="HistoryList" ItemTemplate="{StaticResource HistoryItem}"/>
+                            </ScrollViewer>
+                        </Grid>
+
+                        <local:MediaSpace x:Name="MediaSpaceView" Visibility="Collapsed"/>
+                        <local:ClipboardSpace x:Name="ClipboardSpaceView" Visibility="Collapsed"/>
+                        <local:LauncherSpace x:Name="LauncherSpaceView" Visibility="Collapsed"/>
+                        <local:TimerSpace x:Name="TimerSpaceView" Visibility="Collapsed"/>
+                    </Grid>
                 </Grid>
             </Grid>
         </Border>

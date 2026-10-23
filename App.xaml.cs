@@ -42,6 +42,8 @@ namespace DynamicIsland
             }
 
             _media = new MediaService(Dispatcher);
+            IslandTools.Media = _media;
+            StartTools();
             SyncScreens();
 
             // Monitores conectados/desconectados o cambio de resolución
@@ -55,6 +57,7 @@ namespace DynamicIsland
 
             CreateTray();
             StartSearch();
+            StartTriggers();
 
             await _media.StartAsync();
 
@@ -203,6 +206,56 @@ namespace DynamicIsland
             }
         }
 
+        // ---------------- Herramientas estilo Dynamic Edge ----------------
+
+        private IslandTriggers? _triggers;
+        private Forms.ToolStripMenuItem? _openItem;
+
+        private void StartTools()
+        {
+            IslandTools.Clipboard.Enabled = AppSettings.Current.ClipboardHistory;
+            IslandTools.Clipboard.Start();
+            IslandTools.Launcher.Load();
+            IslandTools.Timers.TimerFinished += () =>
+            {
+                System.Media.SystemSounds.Exclamation.Play();
+                PushAll(new IslandNotification
+                {
+                    AppName = "Temporizador",
+                    Title = "¡Tiempo! ⏰",
+                    Body = "El temporizador terminó."
+                });
+            };
+        }
+
+        private void StartTriggers()
+        {
+            _triggers = new IslandTriggers { MagicShakeEnabled = AppSettings.Current.MagicShake };
+            _triggers.HotkeyPressed += () => IslandAtCursor()?.ToggleFromKeyboard();
+            _triggers.Shaken += screen =>
+            {
+                var island = _islands.FirstOrDefault(w => w.ScreenId == screen) ?? _islands.FirstOrDefault();
+                if (island != null && !island.IsExpanded) island.OpenPinned(keyboard: false);
+            };
+            _triggers.Start();
+
+            if (_openItem != null)
+                _openItem.Text = _triggers.HotkeyLabel.Length > 0 ? $"Abrir la isla  ({_triggers.HotkeyLabel})" : "Abrir la isla";
+        }
+
+        private IslandWindow? IslandAtCursor()
+        {
+            var screen = Forms.Screen.FromPoint(Forms.Cursor.Position);
+            return _islands.FirstOrDefault(w => w.ScreenId == screen.DeviceName) ?? _islands.FirstOrDefault();
+        }
+
+        private void SetDock(string dock)
+        {
+            AppSettings.Current.Dock = dock;
+            AppSettings.Current.Save();
+            ForEachIsland(w => w.ApplyDock(dock));
+        }
+
         // ---------------- Mantener la isla siempre visible ----------------
 
         private delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
@@ -262,6 +315,51 @@ namespace DynamicIsland
 
             _modeItem = new Forms.ToolStripMenuItem("Iniciando…") { Enabled = false };
             menu.Items.Add(_modeItem);
+            menu.Items.Add(new Forms.ToolStripSeparator());
+
+            // --- La isla ---
+            _openItem = new Forms.ToolStripMenuItem("Abrir la isla");
+            _openItem.Click += (_, _) => IslandAtCursor()?.OpenPinned(keyboard: true);
+            menu.Items.Add(_openItem);
+
+            var dockMenu = new Forms.ToolStripMenuItem("Posición de la isla");
+            foreach (var (key, label) in new[] { ("Top", "Arriba"), ("Left", "Borde izquierdo"), ("Right", "Borde derecho") })
+            {
+                var item = new Forms.ToolStripMenuItem(label) { Tag = key, Checked = AppSettings.Current.Dock == key };
+                item.Click += (_, _) =>
+                {
+                    SetDock(key);
+                    foreach (Forms.ToolStripMenuItem i in dockMenu.DropDownItems) i.Checked = (string)i.Tag! == key;
+                };
+                dockMenu.DropDownItems.Add(item);
+            }
+            menu.Items.Add(dockMenu);
+
+            var shake = new Forms.ToolStripMenuItem("Abrir agitando el mouse (Magic Shake)")
+            {
+                Checked = AppSettings.Current.MagicShake,
+                CheckOnClick = true
+            };
+            shake.CheckedChanged += (_, _) =>
+            {
+                AppSettings.Current.MagicShake = shake.Checked;
+                AppSettings.Current.Save();
+                if (_triggers != null) _triggers.MagicShakeEnabled = shake.Checked;
+            };
+            menu.Items.Add(shake);
+
+            var clip = new Forms.ToolStripMenuItem("Historial del portapapeles")
+            {
+                Checked = AppSettings.Current.ClipboardHistory,
+                CheckOnClick = true
+            };
+            clip.CheckedChanged += (_, _) =>
+            {
+                AppSettings.Current.ClipboardHistory = clip.Checked;
+                AppSettings.Current.Save();
+                IslandTools.Clipboard.Enabled = clip.Checked;
+            };
+            menu.Items.Add(clip);
             menu.Items.Add(new Forms.ToolStripSeparator());
 
             _searchItem = new Forms.ToolStripMenuItem("Buscar…");
@@ -396,6 +494,9 @@ namespace DynamicIsland
         {
             _topTimer.Stop();
             _index?.Dispose();
+            _triggers?.Dispose();
+            IslandTools.Clipboard.Stop();
+            AppSettings.Current.Save(); // último espacio abierto, etc.
             if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
             if (_restoreHook != IntPtr.Zero) UnhookWinEvent(_restoreHook);
             _tray?.Dispose();

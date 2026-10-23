@@ -1,0 +1,128 @@
+<UserControl x:Class="DynamicIsland.ClipboardSpace"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:DynamicIsland"
+             FontFamily="Segoe UI Variable Text, Segoe UI">
+    <UserControl.Resources>
+        <DataTemplate x:Key="ClipTemplate" DataType="{x:Type local:ClipItem}">
+            <Border x:Name="Row" Background="Transparent" CornerRadius="12" Padding="8,6" Margin="0,1"
+                    Cursor="Hand" Tag="{Binding}" MouseLeftButtonUp="Row_Click"
+                    ToolTip="Clic para copiar">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="40" Height="40" CornerRadius="9" Background="#1AFFFFFF"
+                            Visibility="{Binding GlyphVisibility}" VerticalAlignment="Top">
+                        <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource Icons}" FontSize="16"
+                                   Foreground="{StaticResource TextSecondary}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <Border Width="40" Height="40" CornerRadius="9" Visibility="{Binding ThumbVisibility}"
+                            VerticalAlignment="Top">
+                        <Border.Background>
+                            <ImageBrush ImageSource="{Binding Thumb}" Stretch="UniformToFill"/>
+                        </Border.Background>
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="10,0,6,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Preview}" FontSize="12.5" Foreground="{StaticResource TextPrimary}"
+                                   TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="34"/>
+                        <TextBlock FontSize="10.5" Foreground="{StaticResource TextSecondary}" Margin="0,2,0,0">
+                            <Run Text="{Binding KindLabel, Mode=OneWay}"/><Run Text="  ·  "/><Run Text="{Binding TimeText, Mode=OneWay}"/>
+                        </TextBlock>
+                    </StackPanel>
+                    <StackPanel x:Name="Actions" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                                Opacity="0.5">
+                        <Button Style="{StaticResource IconButton}" Width="26" Height="26" FontSize="12"
+                                Content="&#xE8A7;" ToolTip="Abrir enlace" Tag="{Binding}" Click="OpenLink_Click"
+                                Visibility="{Binding LinkVisibility}"/>
+                        <Button Style="{StaticResource IconButton}" Width="26" Height="26" FontSize="12"
+                                Content="{Binding PinGlyph}" ToolTip="Fijar / soltar" Tag="{Binding}" Click="Pin_Click"/>
+                        <Button Style="{StaticResource IconButton}" Width="26" Height="26" FontSize="11"
+                                Content="&#xE711;" ToolTip="Quitar" Tag="{Binding}" Click="Remove_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <Trigger SourceName="Row" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Row" Property="Background" Value="{StaticResource ItemHover}"/>
+                    <Setter TargetName="Actions" Property="Opacity" Value="1"/>
+                </Trigger>
+                <DataTrigger Binding="{Binding IsPinned}" Value="True">
+                    <Setter TargetName="Actions" Property="Opacity" Value="1"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Búsqueda -->
+        <Border CornerRadius="11" Background="{StaticResource Surface}" Height="32" Margin="2,0,2,0">
+            <Grid Margin="10,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="&#xE721;" FontFamily="{StaticResource Icons}" FontSize="12"
+                           Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                <Grid Grid.Column="1" Margin="8,0,0,0">
+                    <TextBlock x:Name="Placeholder" Text="Buscar en el portapapeles" FontSize="12.5"
+                               Foreground="{StaticResource TextTertiary}" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                    <TextBox x:Name="SearchBox" FontSize="12.5" Foreground="{StaticResource TextPrimary}"
+                             CaretBrush="{StaticResource TextPrimary}" SelectionBrush="{StaticResource Accent}"
+                             Background="Transparent" BorderThickness="0" Padding="0" VerticalContentAlignment="Center"
+                             TextChanged="Search_TextChanged" PreviewMouseLeftButtonDown="Search_MouseDown"/>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Filtros -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="2,8,0,6">
+            <RadioButton Style="{StaticResource ChipButton}" Content="Todo" Tag="All" IsChecked="True" Checked="Filter_Checked"/>
+            <RadioButton Style="{StaticResource ChipButton}" Content="Texto" Tag="Text" Checked="Filter_Checked"/>
+            <RadioButton Style="{StaticResource ChipButton}" Content="Enlaces" Tag="Link" Checked="Filter_Checked"/>
+            <RadioButton Style="{StaticResource ChipButton}" Content="Imágenes" Tag="Image" Checked="Filter_Checked"/>
+            <RadioButton Style="{StaticResource ChipButton}" Content="Archivos" Tag="Files" Checked="Filter_Checked"/>
+            <RadioButton Style="{StaticResource ChipButton}" Content="Fijados" Tag="Pinned" Checked="Filter_Checked"/>
+        </StackPanel>
+
+        <!-- Historial -->
+        <ListBox x:Name="ClipList" Grid.Row="2" Background="Transparent" BorderThickness="0" Focusable="False"
+                 ItemTemplate="{StaticResource ClipTemplate}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Hidden">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Focusable" Value="False"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <ContentPresenter/>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+        <TextBlock x:Name="EmptyText" Grid.Row="2" FontSize="12.5" TextAlignment="Center" TextWrapping="Wrap"
+                   Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Margin="30,0" Text="Lo que copies (texto, enlaces, imágenes o archivos) aparecerá aquí."/>
+
+        <!-- Pie -->
+        <DockPanel Grid.Row="3" Margin="4,6,2,0">
+            <Button DockPanel.Dock="Right" Style="{StaticResource PillButton}" Content="Borrar no fijados"
+                    Click="Clear_Click"/>
+            <TextBlock x:Name="StatusText" FontSize="11" Foreground="{StaticResource TextSecondary}"
+                       VerticalAlignment="Center"/>
+        </DockPanel>
+    </Grid>
+</UserControl>
