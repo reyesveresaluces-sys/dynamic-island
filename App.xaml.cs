@@ -216,6 +216,7 @@ namespace DynamicIsland
             IslandTools.Clipboard.Enabled = AppSettings.Current.ClipboardHistory;
             IslandTools.Clipboard.Start();
             IslandTools.Launcher.Load();
+            IslandTools.Zones.Start();
             IslandTools.Timers.TimerFinished += () =>
             {
                 System.Media.SystemSounds.Exclamation.Play();
@@ -360,6 +361,42 @@ namespace DynamicIsland
                 IslandTools.Clipboard.Enabled = clip.Checked;
             };
             menu.Items.Add(clip);
+
+            var zonesMenu = new Forms.ToolStripMenuItem("Zonas de ventanas (FancyZones)");
+            var zonesOn = new Forms.ToolStripMenuItem("Activar zonas al arrastrar")
+            {
+                Checked = AppSettings.Current.ZonesEnabled,
+                CheckOnClick = true
+            };
+            zonesOn.CheckedChanged += (_, _) =>
+            {
+                AppSettings.Current.ZonesEnabled = zonesOn.Checked;
+                AppSettings.Current.Save();
+                IslandTools.Zones.Enabled = zonesOn.Checked;
+            };
+            zonesMenu.DropDownItems.Add(zonesOn);
+            var zonesShift = new Forms.ToolStripMenuItem("Solo al arrastrar con Shift")
+            {
+                Checked = AppSettings.Current.ZonesRequireShift,
+                CheckOnClick = true
+            };
+            zonesShift.CheckedChanged += (_, _) =>
+            {
+                AppSettings.Current.ZonesRequireShift = zonesShift.Checked;
+                AppSettings.Current.Save();
+                IslandTools.Zones.RequireShift = zonesShift.Checked;
+            };
+            zonesMenu.DropDownItems.Add(zonesShift);
+            // Si se cambian desde la isla, el menú se mantiene al día
+            IslandTools.Zones.Changed += () => Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (zonesOn.Checked != IslandTools.Zones.Enabled) zonesOn.Checked = IslandTools.Zones.Enabled;
+                if (zonesShift.Checked != IslandTools.Zones.RequireShift) zonesShift.Checked = IslandTools.Zones.RequireShift;
+            }));
+            var zonesOpen = new Forms.ToolStripMenuItem("Elegir disposición…");
+            zonesOpen.Click += (_, _) => IslandAtCursor()?.OpenPinned(keyboard: true, space: IslandSpace.Zones);
+            zonesMenu.DropDownItems.Add(zonesOpen);
+            menu.Items.Add(zonesMenu);
             menu.Items.Add(new Forms.ToolStripSeparator());
 
             _searchItem = new Forms.ToolStripMenuItem("Buscar…");
@@ -495,6 +532,7 @@ namespace DynamicIsland
             _topTimer.Stop();
             _index?.Dispose();
             _triggers?.Dispose();
+            IslandTools.Zones.Dispose();
             IslandTools.Clipboard.Stop();
             AppSettings.Current.Save(); // último espacio abierto, etc.
             if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);

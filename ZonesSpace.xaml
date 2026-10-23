@@ -1,0 +1,84 @@
+<UserControl x:Class="DynamicIsland.ZonesSpace"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="Segoe UI Variable Text, Segoe UI">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="10"/>
+            <ColumnDefinition Width="176"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Disposiciones -->
+        <Border CornerRadius="16" Background="{StaticResource Surface}" Padding="12,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Text="Disposición de esta pantalla" FontSize="12" Foreground="{StaticResource TextSecondary}"/>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden" Focusable="False" Margin="0,8,0,4">
+                    <WrapPanel x:Name="LayoutTiles"/>
+                </ScrollViewer>
+                <StackPanel Grid.Row="2">
+                    <DockPanel Margin="0,2,0,0">
+                        <TextBlock Text="Columnas" FontSize="11.5" Foreground="{StaticResource TextSecondary}"
+                                   VerticalAlignment="Center" Width="62"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Style="{StaticResource PillButton}" Content="−" Width="24" Tag="c-" Click="Grid_Click"/>
+                            <TextBlock x:Name="ColsText" Text="3" FontSize="12" Foreground="{StaticResource TextPrimary}"
+                                       VerticalAlignment="Center" Margin="7,0" MinWidth="10" TextAlignment="Center"/>
+                            <Button Style="{StaticResource PillButton}" Content="+" Width="24" Tag="c+" Click="Grid_Click"/>
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Margin="0,6,0,0">
+                        <TextBlock Text="Filas" FontSize="11.5" Foreground="{StaticResource TextSecondary}"
+                                   VerticalAlignment="Center" Width="62"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Style="{StaticResource PillButton}" Content="−" Width="24" Tag="r-" Click="Grid_Click"/>
+                            <TextBlock x:Name="RowsText" Text="2" FontSize="12" Foreground="{StaticResource TextPrimary}"
+                                       VerticalAlignment="Center" Margin="7,0" MinWidth="10" TextAlignment="Center"/>
+                            <Button Style="{StaticResource PillButton}" Content="+" Width="24" Tag="r+" Click="Grid_Click"/>
+                        </StackPanel>
+                    </DockPanel>
+                    <DockPanel Margin="0,8,0,0">
+                        <TextBlock Text="Separación" FontSize="11.5" Foreground="{StaticResource TextSecondary}"
+                                   VerticalAlignment="Center" Width="62"/>
+                        <TextBlock x:Name="SpacingText" DockPanel.Dock="Right" Text="10 px" FontSize="11.5"
+                                   Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"
+                                   Margin="8,0,0,0" Width="34" TextAlignment="Right"/>
+                        <Slider x:Name="SpacingSlider" Style="{StaticResource IslandSlider}" Minimum="0" Maximum="40"
+                                Value="10" IsMoveToPointEnabled="True" VerticalAlignment="Center"
+                                ValueChanged="Spacing_Changed"/>
+                    </DockPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Vista previa: clic en una zona manda ahí la ventana activa -->
+        <Border Grid.Column="2" CornerRadius="16" Background="{StaticResource Surface}" Padding="12,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Text="Enviar la ventana activa a…" FontSize="12" TextTrimming="CharacterEllipsis"
+                           Foreground="{StaticResource TextSecondary}"/>
+                <Canvas x:Name="Preview" Grid.Row="1" Margin="0,8,0,6" ClipToBounds="True" Background="Transparent"
+                        SizeChanged="Preview_SizeChanged"/>
+                <DockPanel Grid.Row="2">
+                    <TextBlock Text="Mostrar zonas" FontSize="11.5" Foreground="{StaticResource TextSecondary}"
+                               VerticalAlignment="Center"/>
+                    <Button x:Name="ShiftButton" Style="{StaticResource PillButton}" HorizontalAlignment="Right"
+                            Content="Con Shift" Click="Shift_Click"
+                            ToolTip="Las zonas aparecen al arrastrar una ventana con Shift; o siempre que arrastres"/>
+                </DockPanel>
+                <TextBlock x:Name="HintText" Grid.Row="3" FontSize="10.5" Foreground="{StaticResource TextTertiary}"
+                           TextWrapping="Wrap" Margin="0,6,0,0"/>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

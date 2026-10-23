@@ -23,7 +23,7 @@ Una "Dynamic Island" estilo iPhone en la parte superior de la pantalla que **ref
 
 ### Espacios (estilo "edge dock")
 
-Al pasar el mouse, la isla se expande y muestra **espacios**. Se cambian con la **rueda del mouse** (o deslizando de lado en el touchpad), con las pestañas, o con ←/→ y 1–5 si la abriste con el teclado:
+Al pasar el mouse, la isla se expande y muestra **espacios**. Se cambian con la **rueda del mouse** (o deslizando de lado en el touchpad), con las pestañas, o con ←/→ y 1–6 si la abriste con el teclado:
 
 | Espacio | Qué hace |
 |---|---|
@@ -32,6 +32,18 @@ Al pasar el mouse, la isla se expande y muestra **espacios**. Se cambian con la 
 | 📋 Portapapeles | Historial de lo que copias — texto, enlaces, imágenes y archivos — con **búsqueda**, filtros y elementos **fijados** que se conservan. Clic en un elemento = copiarlo de nuevo. Respeta a los gestores de contraseñas que piden no registrar su contenido |
 | 🚀 Apps | Lanzador de apps, archivos y carpetas **sin límite**. Arrastra cualquier cosa sobre la isla para agregarla; clic derecho para ordenar o quitar |
 | ⏱️ Temporizador | Temporizador con atajos (1, 5, 10, 25, 60 min) y cronómetro con vueltas. Mientras corren, la isla compacta muestra la cuenta |
+| 🪟 Zonas | Disposición de ventanas estilo **FancyZones** para esa pantalla, con vista previa para mandar la ventana activa a una zona con un clic |
+
+### Zonas de ventanas (como FancyZones de PowerToys)
+
+- **Arrastra una ventana con Shift** y aparecen las zonas del monitor; suéltala sobre una y se ajusta ahí.
+  - Con **Ctrl** mientras arrastras, la ventana **abarca varias zonas** (pasa el cursor por las que quieras).
+  - En el espacio *Zonas* puedes cambiarlo a **Siempre** (sin Shift) o **Apagadas**; también desde la bandeja.
+- **Disposiciones:** Enfoque, Columnas, Tres columnas, Filas, Cuadrícula, Prioridad, Prioridad central, Ancha + lateral, y una **cuadrícula a tu medida** (hasta 6 × 4). **Cada monitor tiene la suya** y se recuerda.
+- **Separación** entre zonas ajustable (0–40 px).
+- **Teclado:** `Ctrl+Alt+←/→` mueve la ventana activa de zona en zona (al llegar al borde pasa al siguiente monitor) y `Ctrl+Alt+↑` la manda a la primera zona.
+- **Clic:** en el espacio *Zonas*, la vista previa del monitor manda la última ventana activa a la zona que toques.
+- Funciona con ventanas normales de cualquier app (respeta el marco invisible de Windows, así que quedan al ras) y no estorba: la capa de zonas no recibe clics.
 
 **Abrir sin el mouse:** `Ctrl+Alt+Espacio` (o `Win+Alt+Espacio` si está ocupado), o **Magic Shake**: agita el mouse de lado a lado.
 
@@ -40,7 +52,7 @@ Al pasar el mouse, la isla se expande y muestra **espacios**. Se cambian con la 
 Las animaciones usan física de resorte.
 
 > Nota: Windows no permite que otras apps usen el botón "Responder" de una notificación, así que para contestar se abre la app al hacer clic.
-- Ícono en la bandeja del sistema: pausar banners (No molestar), duración del banner, iniciar con Windows, probar la isla, salir.
+- Ícono en la bandeja del sistema: pausar banners (No molestar), duración del banner, zonas de ventanas, iniciar con Windows, probar la isla, salir.
 
 ## Descargar
 
@@ -69,10 +81,14 @@ Es un solo `.exe`; no necesitas instalar .NET.
 | `SearchWindow.xaml(.cs)` | Barra tipo Spotlight, vista previa y atajo global |
 | `OcrService.cs` | OCR de imágenes y PDF escaneados (Windows.Media.Ocr) |
 | `PreviewService.cs` | Prepara la vista previa: imagen, página de PDF, texto o miniatura |
-| `AppSettings.cs` | Ajustes guardados (OCR activado) |
+| `AppSettings.cs` | Ajustes guardados (OCR, posición, zonas por monitor, lanzador…) |
 | `NotificationActivation.cs` | Al hacer clic, abre la notificación como Windows: pasa su orden original al activador de la app (p. ej. abre el chat exacto en WhatsApp Web). Registro en `%LOCALAPPDATA%\DynamicIsland\clicks.log` |
+| `ZoneService.cs` | Zonas de ventanas: detecta el arrastre, ajusta la ventana a la zona y atajos de teclado |
+| `ZoneLayouts.cs` | Disposiciones de zonas (predefinidas y cuadrículas a medida) |
+| `ZoneOverlayWindow.cs` | Capa transparente que dibuja las zonas sobre el monitor mientras arrastras |
+| `ZonesSpace` | El espacio *Zonas* de la isla: elegir disposición, separación y enviar ventanas |
 | `MediaService.cs` | Música en curso, controles y línea de tiempo (GlobalSystemMediaTransportControls) |
-| `MediaSpace` / `ClipboardSpace` / `LauncherSpace` / `TimerSpace` | Los espacios de la isla expandida |
+| `MediaSpace` / `ClipboardSpace` / `LauncherSpace` / `TimerSpace` / `ZonesSpace` | Los espacios de la isla expandida |
 | `ClipboardService.cs` | Historial del portapapeles y elementos fijados |
 | `LauncherStore.cs` | Accesos rápidos del lanzador |
 | `TimerTools.cs` | Temporizador y cronómetro compartidos |

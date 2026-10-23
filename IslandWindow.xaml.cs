@@ -88,6 +88,7 @@ namespace DynamicIsland
             IslandTools.Timers.PropertyChanged += OnTimersChanged;
             IslandTools.Launcher.Items.CollectionChanged += (_, _) => { if (_state == IslandState.Expanded) Resize(); };
             ClipboardSpaceView.KeyboardRequested += () => ActivateForInput();
+            ZonesSpaceView.ScreenId = screenId;
             UpdateClock();
             BuildEqualizer();
 
@@ -168,11 +169,12 @@ namespace DynamicIsland
         }
 
         /// <summary>Abre la isla sin necesidad de pasar el mouse (atajo de teclado o Magic Shake).</summary>
-        public void OpenPinned(bool keyboard)
+        public void OpenPinned(bool keyboard, IslandSpace? space = null)
         {
             _pinned = true;
             _mouseWasInside = Pill.IsMouseOver;
-            if (_state != IslandState.Expanded) GoExpanded(DefaultSpace());
+            if (_state != IslandState.Expanded) GoExpanded(space ?? DefaultSpace());
+            else if (space != null && space != _space) SelectSpace(space.Value, animate: true);
             if (keyboard) ActivateForInput();
             else { _autoClose.Stop(); _autoClose.Start(); }
         }
@@ -384,7 +386,7 @@ namespace DynamicIsland
         // ================= Espacios =================
 
         private static readonly IslandSpace[] Order =
-            { IslandSpace.Notifications, IslandSpace.Media, IslandSpace.Clipboard, IslandSpace.Launcher, IslandSpace.Timer };
+            { IslandSpace.Notifications, IslandSpace.Media, IslandSpace.Clipboard, IslandSpace.Launcher, IslandSpace.Timer, IslandSpace.Zones };
 
         private bool _selecting;
 
@@ -403,6 +405,7 @@ namespace DynamicIsland
             ClipboardSpaceView.Visibility = space == IslandSpace.Clipboard ? Visibility.Visible : Visibility.Collapsed;
             LauncherSpaceView.Visibility = space == IslandSpace.Launcher ? Visibility.Visible : Visibility.Collapsed;
             TimerSpaceView.Visibility = space == IslandSpace.Timer ? Visibility.Visible : Visibility.Collapsed;
+            ZonesSpaceView.Visibility = space == IslandSpace.Zones ? Visibility.Visible : Visibility.Collapsed;
 
             MediaSpaceView.SetActive(space == IslandSpace.Media);
             ClipboardSpaceView.SetActive(space == IslandSpace.Clipboard);
@@ -414,6 +417,7 @@ namespace DynamicIsland
                 IslandSpace.Clipboard => "Portapapeles",
                 IslandSpace.Launcher => "Apps",
                 IslandSpace.Timer => "Temporizador",
+                IslandSpace.Zones => "Zonas",
                 _ => "Notificaciones"
             };
 
@@ -443,6 +447,7 @@ namespace DynamicIsland
             IslandSpace.Clipboard => TabClipboard,
             IslandSpace.Launcher => TabLauncher,
             IslandSpace.Timer => TabTimer,
+            IslandSpace.Zones => TabZones,
             _ => TabNotifications
         };
 
@@ -453,6 +458,7 @@ namespace DynamicIsland
                   : sender == TabClipboard ? IslandSpace.Clipboard
                   : sender == TabLauncher ? IslandSpace.Launcher
                   : sender == TabTimer ? IslandSpace.Timer
+                  : sender == TabZones ? IslandSpace.Zones
                   : IslandSpace.Notifications;
             if (s != _space) SelectSpace(s, animate: true);
         }
@@ -474,6 +480,7 @@ namespace DynamicIsland
                 IslandSpace.Clipboard => 390,
                 IslandSpace.Launcher => LauncherHeight(),
                 IslandSpace.Timer => 262,
+                IslandSpace.Zones => 300,
                 _ => _history.Count == 0 ? 70 : Math.Min(_history.Count, 5) * RowH
             };
             if (_space == IslandSpace.Notifications)
@@ -636,7 +643,7 @@ namespace DynamicIsland
                 Step(e.Key == Key.Right ? 1 : -1);
                 e.Handled = true;
             }
-            else if (!inText && e.Key >= Key.D1 && e.Key <= Key.D5)
+            else if (!inText && e.Key >= Key.D1 && e.Key <= Key.D6)
             {
                 SelectSpace(Order[e.Key - Key.D1], animate: true);
                 e.Handled = true;

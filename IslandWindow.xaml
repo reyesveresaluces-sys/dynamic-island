@@ -182,6 +182,30 @@
                                          ToolTip="Apps y carpetas" Checked="Tab_Checked"/>
                             <RadioButton x:Name="TabTimer" Style="{StaticResource TabButton}" Content="&#xE916;"
                                          ToolTip="Temporizador y cronómetro" Checked="Tab_Checked"/>
+                            <!-- Ícono dibujado (no depende de la fuente de íconos): cuadrícula de zonas -->
+                            <RadioButton x:Name="TabZones" Style="{StaticResource TabButton}"
+                                         ToolTip="Zonas de ventanas (FancyZones)" Checked="Tab_Checked">
+                                <Grid Width="15" Height="13">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition/>
+                                        <ColumnDefinition Width="2"/>
+                                        <ColumnDefinition/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/>
+                                        <RowDefinition Height="2"/>
+                                        <RowDefinition/>
+                                    </Grid.RowDefinitions>
+                                    <Rectangle RadiusX="1.5" RadiusY="1.5"
+                                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                    <Rectangle Grid.Column="2" RadiusX="1.5" RadiusY="1.5"
+                                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                    <Rectangle Grid.Row="2" RadiusX="1.5" RadiusY="1.5"
+                                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                    <Rectangle Grid.Row="2" Grid.Column="2" RadiusX="1.5" RadiusY="1.5"
+                                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                </Grid>
+                            </RadioButton>
                         </StackPanel>
                     </DockPanel>
 
@@ -204,6 +228,7 @@
                         <local:ClipboardSpace x:Name="ClipboardSpaceView" Visibility="Collapsed"/>
                         <local:LauncherSpace x:Name="LauncherSpaceView" Visibility="Collapsed"/>
                         <local:TimerSpace x:Name="TimerSpaceView" Visibility="Collapsed"/>
+                        <local:ZonesSpace x:Name="ZonesSpaceView" Visibility="Collapsed"/>
                     </Grid>
                 </Grid>
             </Grid>

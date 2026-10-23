@@ -28,6 +28,14 @@ namespace DynamicIsland
         public List<string> Launcher { get; set; } = new();
         public List<PinnedClip> PinnedClips { get; set; } = new();
 
+        // Zonas de ventanas (estilo FancyZones)
+        public bool ZonesEnabled { get; set; } = true;
+        /// <summary>Las zonas aparecen solo al arrastrar con Shift (si es falso, siempre).</summary>
+        public bool ZonesRequireShift { get; set; } = true;
+        public int ZoneSpacing { get; set; } = 10;
+        /// <summary>Disposición por monitor (Screen.DeviceName → clave de la disposición).</summary>
+        public Dictionary<string, string> ZoneLayoutByScreen { get; set; } = new();
+
         private static readonly string FilePath = Path.Combine(SearchIndex.DataDir, "settings.json");
         public static AppSettings Current { get; } = Load();
 

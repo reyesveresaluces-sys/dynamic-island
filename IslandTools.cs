@@ -8,10 +8,11 @@ namespace DynamicIsland
         public static TimerTools Timers { get; } = new();
         public static VolumeService Volume { get; } = new();
         public static MediaService? Media { get; set; }
+        public static ZoneService Zones { get; } = new();
     }
 
     /// <summary>Espacios de la isla expandida (se cambian con la rueda del mouse).</summary>
-    public enum IslandSpace { Notifications, Media, Clipboard, Launcher, Timer }
+    public enum IslandSpace { Notifications, Media, Clipboard, Launcher, Timer, Zones }
 
     /// <summary>Borde de la pantalla donde se ancla la isla.</summary>
     public enum IslandDock { Top, Left, Right }
