@@ -68,7 +68,19 @@ Es un solo `.exe`; no necesitas instalar .NET.
 2. Windows pedirá permiso para **leer tus notificaciones**: acéptalo.
    Si no aparece, ve a *Configuración → Privacidad y seguridad → Notificaciones* y activa el acceso.
 3. Si la API de Windows no está disponible, la app entra en **modo compatibilidad** (lee la base de notificaciones de Windows directamente). El menú de la bandeja indica qué modo está activo.
-4. Activa **Iniciar con Windows** desde el ícono de la bandeja.
+4. Bandeja → **Iniciar con Windows** → **Fijar el .exe en AppData (recomendado)**. Eso copia el ejecutable a `%LOCALAPPDATA%\DynamicIsland\app` y registra esa copia, así el arranque no se rompe cuando borras la descarga o bajas una versión nueva.
+
+### Si no arranca solo con Windows
+
+Bandeja → *Iniciar con Windows* → **Comprobar estado…** dice qué pasa. Las tres causas habituales:
+
+| Qué dice | Qué hacer |
+|---|---|
+| La entrada apunta a una carpeta que ya no existe (una descarga vieja) | *Fijar el .exe en AppData*; además la app corrige la ruta sola cada vez que la abres |
+| “Windows la tiene DESACTIVADA” | Administrador de tareas → *Aplicaciones de inicio* → Dynamic Island → **Habilitar** (o vuelve a marcar *Activado* en la bandeja, que también quita esa marca) |
+| El `.exe` sigue bloqueado por venir de internet | Clic derecho en el archivo → *Propiedades* → **Desbloquear** |
+
+El Administrador de tareas **no sirve para agregar** programas al inicio, solo para habilitar o deshabilitar los que ya están; la app registra el suyo en `HKCU\…\Run` y además deja un acceso directo en la carpeta *Inicio* por si alguna directiva bloquea el registro.
 
 **Tip:** para que no salgan duplicadas, puedes apagar los banners nativos de Windows (*Configuración → Sistema → Notificaciones →* cada app *→ Mostrar banners de notificación*). Las notificaciones siguen llegando al centro de notificaciones y la isla las seguirá mostrando.
 

@@ -41,6 +41,9 @@ namespace DynamicIsland
                 return;
             }
 
+            // Si el .exe cambió de carpeta, corrige la entrada de inicio para que siga arrancando
+            StartupManager.Refresh();
+
             _media = new MediaService(Dispatcher);
             IslandTools.Media = _media;
             StartTools();
@@ -471,9 +474,42 @@ namespace DynamicIsland
             };
             menu.Items.Add(trackChanges);
 
-            var startup = new Forms.ToolStripMenuItem("Iniciar con Windows") { Checked = StartupManager.IsEnabled, CheckOnClick = true };
-            startup.CheckedChanged += (_, _) => StartupManager.SetEnabled(startup.Checked);
-            menu.Items.Add(startup);
+            var startupMenu = new Forms.ToolStripMenuItem("Iniciar con Windows");
+            var startup = new Forms.ToolStripMenuItem("Activado") { Checked = StartupManager.IsEnabled, CheckOnClick = true };
+            void StartupToggled(object? s, EventArgs e) => StartupManager.SetEnabled(startup.Checked);
+            startup.CheckedChanged += StartupToggled;
+            startupMenu.DropDownItems.Add(startup);
+
+            var startupFix = new Forms.ToolStripMenuItem("Fijar el .exe en AppData (recomendado)");
+            startupFix.ToolTipText = "Copia el ejecutable a una carpeta estable para que el arranque no dependa de Descargas";
+            startupFix.Click += (_, _) =>
+            {
+                string? copy = StartupManager.InstallCopy();
+                startup.Checked = StartupManager.IsEnabled;
+                PushAll(new IslandNotification
+                {
+                    AppName = "Dynamic Island",
+                    Title = copy != null ? "Listo, arrancará con Windows" : "No pude copiar el ejecutable",
+                    Body = copy != null ? "Se ejecutará desde " + copy : "Revisa el estado desde el menú de la bandeja."
+                });
+            };
+            startupMenu.DropDownItems.Add(startupFix);
+
+            var startupStatus = new Forms.ToolStripMenuItem("Comprobar estado…");
+            startupStatus.Click += (_, _) =>
+                MessageBox.Show(StartupManager.Status(), "Inicio con Windows", MessageBoxButton.OK, MessageBoxImage.Information);
+            startupMenu.DropDownItems.Add(startupStatus);
+
+            // Al abrir el menú se refleja el estado real sin volver a escribirlo
+            startupMenu.DropDownOpening += (_, _) =>
+            {
+                bool real = StartupManager.IsEnabled;
+                if (startup.Checked == real) return;
+                startup.CheckedChanged -= StartupToggled;
+                startup.Checked = real;
+                startup.CheckedChanged += StartupToggled;
+            };
+            menu.Items.Add(startupMenu);
 
             var test = new Forms.ToolStripMenuItem("Probar la isla");
             test.Click += (_, _) => PushAll(new IslandNotification
