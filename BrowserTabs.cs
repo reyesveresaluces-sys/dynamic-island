@@ -89,6 +89,21 @@ namespace DynamicIsland
             }
         }
 
+        /// <summary>Trae al frente la ventana del navegador sin abrir pestañas nuevas.</summary>
+        public static void FocusBrowser(string appId, string appName)
+        {
+            string? process = BrowserProcess(appId, appName);
+            if (process == null) return;
+            try
+            {
+                var hwnd = Process.GetProcessesByName(process)
+                    .Select(p => p.MainWindowHandle)
+                    .FirstOrDefault(h => h != IntPtr.Zero);
+                if (hwnd != IntPtr.Zero) BringToFront(hwnd);
+            }
+            catch { }
+        }
+
         private static IEnumerable<string> Keywords(string site)
         {
             if (KnownSites.TryGetValue(site, out var known)) return known;

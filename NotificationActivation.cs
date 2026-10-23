@@ -32,6 +32,7 @@ namespace DynamicIsland
             // Hay que hacerlo en el hilo del clic: permite que la app abierta pase al frente
             AllowSetForegroundWindow(ASFW_ANY);
 
+            uint id = n.Id;
             string appId = n.AppId, appName = n.AppName, title = n.Title, body = n.Body;
             string launch = n.LaunchArgs, site = n.Site;
 
@@ -39,27 +40,40 @@ namespace DynamicIsland
             {
                 try
                 {
-                    if (launch.Length == 0)
+                    if (launch.Length == 0 || site.Length == 0)
                     {
-                        var original = FindOriginal(appId, title, body);
+                        var original = FindOriginal(id, appId, title, body);
                         if (original != null)
                         {
-                            launch = original.Value.launch;
+                            if (launch.Length == 0) launch = original.Value.launch;
                             if (site.Length == 0) site = original.Value.site;
                         }
                     }
                     Log($"Clic: app={appId} sitio={site} launch={(launch.Length > 0 ? launch : "(no encontrado)")}");
 
+                    bool browser = BrowserTabs.IsBrowser(appId, appName);
                     if (launch.Length > 0)
                     {
+                        // Chromium (Edge/Chrome): Windows termina ejecutando el navegador con
+                        // --notification-launch-id; hacerlo directamente es lo más fiable.
+                        if (browser && TryChromiumSwitch(appId, appName, launch)) return;
                         if (TryComActivator(appId, launch)) return;
-                        if (TryChromiumSwitch(appId, appName, launch)) return;
+                        if (!browser && TryChromiumSwitch(appId, appName, launch)) return;
                     }
 
-                    if (site.Length > 0 && BrowserTabs.IsBrowser(appId, appName))
+                    if (browser)
                     {
-                        Log("Respaldo: buscar la pestaña del sitio");
-                        BrowserTabs.FocusOrOpen(appId, appName, site);
+                        if (site.Length > 0)
+                        {
+                            Log("Respaldo: buscar la pestaña del sitio");
+                            BrowserTabs.FocusOrOpen(appId, appName, site);
+                        }
+                        else
+                        {
+                            // Nunca abrir una pestaña nueva vacía: solo traer el navegador al frente
+                            Log("Respaldo: traer el navegador al frente");
+                            BrowserTabs.FocusBrowser(appId, appName);
+                        }
                         return;
                     }
 
@@ -78,44 +92,133 @@ namespace DynamicIsland
         private static string Fingerprint(string title, string body) =>
             Regex.Replace(title + " " + body, @"\s+", " ").Trim().ToLowerInvariant();
 
-        /// <summary>Busca el XML original del toast para obtener su atributo launch y el sitio.</summary>
-        public static (string launch, string site)? FindOriginal(string appId, string title, string body)
+        /// <summary>"Microsoft.MicrosoftEdge.Stable_8wekyb3d8bbwe!App" → "Microsoft.MicrosoftEdge.Stable_8wekyb3d8bbwe".</summary>
+        private static string Family(string aumid)
         {
-            if (!File.Exists(WpnDb)) return null;
-            string want = Fingerprint(title, body);
-            string wantTitle = Fingerprint(title, "");
+            int i = aumid.IndexOf('!');
+            return i > 0 ? aumid[..i] : aumid;
+        }
 
-            var rows = new List<(string handler, string payload)>();
-            using (var con = new SqliteConnection($"Data Source={WpnDb};Mode=ReadOnly;Cache=Shared"))
+        /// <summary>Edge registra cada sitio como "…!https://web.whatsapp.com/": de ahí sale el dominio.</summary>
+        private static string SiteFromHandler(string handler)
+        {
+            int i = handler.IndexOf('!');
+            if (i < 0) return "";
+            return BrowserTabs.AsDomain(handler[(i + 1)..]) ?? "";
+        }
+
+        private static List<(long id, string handler, string payload)> ReadToasts()
+        {
+            var rows = new List<(long, string, string)>();
+            void Read(string db)
             {
+                using var con = new SqliteConnection($"Data Source={db};Mode=ReadOnly;Cache=Shared");
                 con.Open();
                 using var cmd = con.CreateCommand();
-                cmd.CommandText = @"SELECT IFNULL(h.PrimaryId,''), n.Payload
+                cmd.CommandText = @"SELECT n.Id, IFNULL(h.PrimaryId,''), n.Payload
                                     FROM Notification n
                                     LEFT JOIN NotificationHandler h ON n.HandlerId = h.RecordId
                                     WHERE n.Type = 'toast'
-                                    ORDER BY n.Id DESC LIMIT 300";
+                                    ORDER BY n.Id DESC LIMIT 400";
                 using var r = cmd.ExecuteReader();
                 while (r.Read())
                 {
-                    if (r.IsDBNull(1)) continue;
-                    string payload = r.GetValue(1) is byte[] bytes ? System.Text.Encoding.UTF8.GetString(bytes) : r.GetString(1);
-                    rows.Add((r.GetString(0), payload));
+                    if (r.IsDBNull(2)) continue;
+                    string payload = r.GetValue(2) is byte[] bytes ? System.Text.Encoding.UTF8.GetString(bytes) : r.GetString(2);
+                    rows.Add((r.GetInt64(0), r.GetString(1), payload));
                 }
             }
 
-            (string launch, string site)? titleMatch = null;
-            foreach (var (handler, payload) in rows)
+            try { Read(WpnDb); }
+            catch (Exception ex)
             {
-                bool sameApp = appId.Length == 0 || handler.Equals(appId, StringComparison.OrdinalIgnoreCase);
+                // Windows puede tener la base bloqueada: leer una copia temporal (con su WAL)
+                Log("Base de notificaciones ocupada (" + ex.Message + "), leyendo una copia");
+                rows.Clear();
+                string tmp = Path.Combine(Path.GetTempPath(), "DynamicIsland-wpn");
+                Directory.CreateDirectory(tmp);
+                string copy = Path.Combine(tmp, "wpn.db");
+                try
+                {
+                    foreach (var ext in new[] { "", "-wal", "-shm" })
+                    {
+                        string src = WpnDb + ext, dst = copy + ext;
+                        if (File.Exists(dst)) File.Delete(dst);
+                        if (!File.Exists(src)) continue;
+                        using var i = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                        using var o = File.Create(dst);
+                        i.CopyTo(o);
+                    }
+                    Read(copy);
+                }
+                finally
+                {
+                    SqliteConnection.ClearAllPools();
+                    foreach (var ext in new[] { "", "-wal", "-shm" })
+                        try { File.Delete(copy + ext); } catch { }
+                }
+            }
+            return rows;
+        }
+
+        /// <summary>Busca el XML original del toast para obtener su atributo launch y el sitio.</summary>
+        public static (string launch, string site)? FindOriginal(uint id, string appId, string title, string body)
+        {
+            if (!File.Exists(WpnDb)) { Log("No existe la base de notificaciones"); return null; }
+            string want = Fingerprint(title, body);
+            string wantTitle = Fingerprint(title, "");
+            string family = Family(appId);
+
+            List<(long id, string handler, string payload)> rows;
+            try { rows = ReadToasts(); }
+            catch (Exception ex) { Log("No pude leer la base de notificaciones: " + ex.Message); return null; }
+
+            (string launch, string site)? Result(string handler, (string title, string body, string site, string launch) t)
+            {
+                string site = t.site.Length > 0 ? t.site : SiteFromHandler(handler);
+                return (t.launch, site);
+            }
+
+            // 1) Mismo Id que la notificación de Windows (exacto)
+            if (id != 0)
+            {
+                foreach (var row in rows.Where(r => r.id == id))
+                {
+                    var t = NotificationService.ParseToastXml(row.payload);
+                    Log($"Coincidencia por Id {id} (origen {row.handler})");
+                    return Result(row.handler, t);
+                }
+            }
+
+            // 2) Mismo texto. Preferir la misma app (o la misma familia: Edge usa "…!App" en la API
+            //    pero "…!https://sitio/" en la base); si no, cualquier app con el mismo texto.
+            (string launch, string site)? sameText = null, sameTitle = null;
+            int score = -1;
+            foreach (var (_, handler, payload) in rows)
+            {
                 var t = NotificationService.ParseToastXml(payload);
                 if (t.launch.Length == 0) continue;
 
-                if (Fingerprint(t.title, t.body) == want && sameApp) return (t.launch, t.site);
-                if (titleMatch == null && sameApp && wantTitle.Length > 0 && Fingerprint(t.title, "") == wantTitle)
-                    titleMatch = (t.launch, t.site);
+                int s = handler.Equals(appId, StringComparison.OrdinalIgnoreCase) ? 2
+                      : family.Length > 0 && Family(handler).Equals(family, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+
+                if (Fingerprint(t.title, t.body) == want)
+                {
+                    if (s > score) { score = s; sameText = Result(handler, t); }
+                    if (s == 2) break;
+                }
+                else if (sameTitle == null && s > 0 && wantTitle.Length > 0 && Fingerprint(t.title, "") == wantTitle)
+                {
+                    sameTitle = Result(handler, t);
+                }
             }
-            return titleMatch;
+
+            if (sameText != null) { Log($"Coincidencia por texto (nivel {score})"); return sameText; }
+            if (sameTitle != null) { Log("Coincidencia por título"); return sameTitle; }
+
+            var handlers = rows.Select(r => r.handler).Distinct().Take(15);
+            Log($"Sin coincidencia entre {rows.Count} notificaciones. Orígenes: {string.Join(", ", handlers)}");
+            return null;
         }
 
         // ================= 2) Activador COM (lo mismo que hace Windows) =================
@@ -297,7 +400,9 @@ namespace DynamicIsland
             try
             {
                 var psi = new ProcessStartInfo(exe) { UseShellExecute = false };
-                psi.ArgumentList.Add("--notification-launch-id=" + launch);
+                const string Prefix = "--notification-launch-id=";
+                // Edge/Chrome ya guardan el launch con el prefijo incluido
+                psi.ArgumentList.Add(launch.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase) ? launch : Prefix + launch);
                 Process.Start(psi);
                 Log("Abierto con --notification-launch-id en " + exe);
                 return true;
