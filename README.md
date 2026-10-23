@@ -52,6 +52,7 @@ Es un solo `.exe`; no necesitas instalar .NET.
 | `OcrService.cs` | OCR de imágenes y PDF escaneados (Windows.Media.Ocr) |
 | `PreviewService.cs` | Prepara la vista previa: imagen, página de PDF, texto o miniatura |
 | `AppSettings.cs` | Ajustes guardados (OCR activado) |
+| `NotificationActivation.cs` | Al hacer clic, abre la notificación como Windows: pasa su orden original al activador de la app (p. ej. abre el chat exacto en WhatsApp Web). Registro en `%LOCALAPPDATA%\DynamicIsland\clicks.log` |
 | `MediaService.cs` | Música en curso y controles (GlobalSystemMediaTransportControls) |
 | `IslandWindow.xaml(.cs)` | La isla: estados compacta / banner / historial y animaciones |
 | `App.xaml.cs` | Arranque, instancia única y menú de la bandeja |

@@ -244,7 +244,7 @@ namespace DynamicIsland
             foreach (var row in rows)
             {
                 _lastDbId = Math.Max(_lastDbId, row.id);
-                var (title, body, site) = ParseToastXml(row.payload);
+                var (title, body, site, launch) = ParseToastXml(row.payload);
                 if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(body)) continue;
                 string appName = PrettyAppName(row.appId);
                 if (site.Length > 0) appName = $"{appName} · {site}";
@@ -260,16 +260,19 @@ namespace DynamicIsland
                     Title = title,
                     Body = body,
                     Time = time,
-                    Site = site
+                    Site = site,
+                    LaunchArgs = launch
                 });
             }
         }
 
-        private static (string title, string body, string site) ParseToastXml(string xml)
+        /// <summary>Título, cuerpo, sitio web (si viene de un navegador) y orden de apertura (atributo launch).</summary>
+        internal static (string title, string body, string site, string launch) ParseToastXml(string xml)
         {
             try
             {
                 var doc = XDocument.Parse(xml.TrimEnd('\0'));
+                string launch = (string?)doc.Root?.Attribute("launch") ?? "";
                 var binding = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "binding");
                 string site = "";
                 var texts = new List<string>();
@@ -287,9 +290,9 @@ namespace DynamicIsland
                     if (attribution) continue;
                     texts.Add(v);
                 }
-                return (texts.FirstOrDefault() ?? "", string.Join("\n", texts.Skip(1)), site);
+                return (texts.FirstOrDefault() ?? "", string.Join("\n", texts.Skip(1)), site, launch);
             }
-            catch { return ("", "", ""); }
+            catch { return ("", "", "", ""); }
         }
 
         /// <summary>Convierte un AUMID en un nombre legible: "Microsoft.Windows.Explorer" → "Explorer".</summary>

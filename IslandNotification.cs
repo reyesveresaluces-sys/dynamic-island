@@ -18,6 +18,9 @@ namespace DynamicIsland
         /// <summary>Sitio web que envió la notificación (p. ej. web.whatsapp.com) si vino de un navegador.</summary>
         public string Site { get; init; } = "";
 
+        /// <summary>Orden de apertura original del toast (atributo launch); se pasa al activador de la app.</summary>
+        public string LaunchArgs { get; init; } = "";
+
         /// <summary>Acción opcional al hacer clic (si no hay, se abre la app por su AppId).</summary>
         public Action? OnClick { get; init; }
 

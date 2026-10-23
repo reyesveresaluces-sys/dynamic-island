@@ -397,19 +397,12 @@ namespace DynamicIsland
             try
             {
                 if (n.OnClick != null) { n.OnClick(); return; }
-
-                // Notificación de un sitio web: ir a su pestaña en el navegador
-                if (!string.IsNullOrEmpty(n.Site) && BrowserTabs.IsBrowser(n.AppId, n.AppName))
-                {
-                    string appId = n.AppId, appName = n.AppName, site = n.Site;
-                    System.Threading.Tasks.Task.Run(() => BrowserTabs.FocusOrOpen(appId, appName, site));
-                    return;
-                }
-
                 if (string.IsNullOrWhiteSpace(n.AppId)) return;
-                Process.Start(new ProcessStartInfo("explorer.exe", $"shell:AppsFolder\\{n.AppId}") { UseShellExecute = true });
+
+                // Igual que el Centro de notificaciones: la app recibe la orden original de la notificación
+                NotificationActivation.Open(n);
             }
-            catch { /* la app no se puede abrir por su AUMID */ }
+            catch { /* la app no se pudo abrir */ }
         }
 
         // ---------------- Utilidades ----------------
