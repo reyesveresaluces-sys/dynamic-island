@@ -90,6 +90,8 @@
             <!-- Resultados + vista previa -->
             <Border x:Name="ResultsArea" BorderBrush="#1FFFFFFF" BorderThickness="0,1,0,0" Visibility="Collapsed">
                 <StackPanel Margin="0,6,0,0">
+                    <!-- Filtros por tipo de archivo -->
+                    <WrapPanel x:Name="TypeChips" Margin="18,2,18,0"/>
                     <Grid x:Name="ResultsGrid" Height="500">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition x:Name="ListColumn" Width="460"/>
@@ -102,7 +104,39 @@
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  SelectionChanged="Results_SelectionChanged"
-                                 MouseLeftButtonUp="Results_MouseLeftButtonUp"/>
+                                 MouseLeftButtonUp="Results_MouseLeftButtonUp">
+                            <!-- Separación por tipo de archivo -->
+                            <ListBox.GroupStyle>
+                                <GroupStyle>
+                                    <GroupStyle.ContainerStyle>
+                                        <Style TargetType="GroupItem">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="GroupItem">
+                                                        <StackPanel>
+                                                            <Grid Margin="18,10,18,3">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="SemiBold"
+                                                                           Foreground="#FF8E8E96"/>
+                                                                <TextBlock Grid.Column="1" Text="{Binding ItemCount}" FontSize="11"
+                                                                           Foreground="#FF5E5E66" Margin="7,0,0,0"/>
+                                                                <Border Grid.Column="2" Height="1" Background="#12FFFFFF"
+                                                                        VerticalAlignment="Center" Margin="12,2,0,0"/>
+                                                            </Grid>
+                                                            <ItemsPresenter/>
+                                                        </StackPanel>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </GroupStyle.ContainerStyle>
+                                </GroupStyle>
+                            </ListBox.GroupStyle>
+                        </ListBox>
                         <TextBlock x:Name="EmptyText" Text="Sin resultados" FontSize="13" Margin="24,12"
                                    Foreground="{StaticResource TextSecondary}" Visibility="Collapsed"
                                    Grid.ColumnSpan="2"/>

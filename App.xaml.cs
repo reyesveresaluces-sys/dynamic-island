@@ -220,6 +220,7 @@ namespace DynamicIsland
             IslandTools.Clipboard.Start();
             IslandTools.Launcher.Load();
             IslandTools.Zones.Start();
+            IslandTools.Windows.Start();
             IslandTools.Timers.TimerFinished += () =>
             {
                 System.Media.SystemSounds.Exclamation.Play();
@@ -409,6 +410,15 @@ namespace DynamicIsland
             };
             zonesMenu.DropDownItems.Add(zonesEdit);
             menu.Items.Add(zonesMenu);
+
+            var windowsMenu = new Forms.ToolStripMenuItem("Ventanas abiertas");
+            var windowsOpen = new Forms.ToolStripMenuItem("Ver en la isla…");
+            windowsOpen.Click += (_, _) => IslandAtCursor()?.OpenPinned(keyboard: true, space: IslandSpace.Windows);
+            windowsMenu.DropDownItems.Add(windowsOpen);
+            var windowsStash = new Forms.ToolStripMenuItem("Guardar la ventana activa en la isla");
+            windowsStash.Click += (_, _) => IslandTools.Windows.StashForeground();
+            windowsMenu.DropDownItems.Add(windowsStash);
+            menu.Items.Add(windowsMenu);
             menu.Items.Add(new Forms.ToolStripSeparator());
 
             _searchItem = new Forms.ToolStripMenuItem("Buscar…");
@@ -578,6 +588,7 @@ namespace DynamicIsland
             _index?.Dispose();
             _triggers?.Dispose();
             IslandTools.Zones.Dispose();
+            IslandTools.Windows.Dispose();
             IslandTools.Clipboard.Stop();
             AppSettings.Current.Save(); // último espacio abierto, etc.
             if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);

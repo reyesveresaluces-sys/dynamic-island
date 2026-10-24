@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -26,6 +27,53 @@ namespace DynamicIsland
         public string Subtitle { get; init; } = "";
         public string KindLabel { get; init; } = "";
         public ImageSource? Icon { get; init; }
+
+        /// <summary>Tipo de archivo con el que se agrupa la lista (Documentos, Hojas de cálculo…).</summary>
+        public string Group { get; init; } = "Otros";
+        /// <summary>Orden fijo de los grupos.</summary>
+        public int GroupOrder { get; init; } = 99;
+        /// <summary>Posición original: conserva la relevancia dentro de cada grupo.</summary>
+        public int Order { get; init; }
+    }
+
+    /// <summary>Clasificación por tipo de archivo para separar los resultados.</summary>
+    public static class FileKinds
+    {
+        private static readonly (int order, string label, string[] ext)[] Table =
+        {
+            (1, "Carpetas",            new[] { "\\" }),
+            (2, "Documentos",          new[] { ".doc", ".docx", ".docm", ".dot", ".dotx", ".odt", ".rtf", ".txt", ".md", ".epub", ".pages" }),
+            (3, "PDF",                 new[] { ".pdf" }),
+            (4, "Hojas de cálculo",    new[] { ".xls", ".xlsx", ".xlsm", ".xlsb", ".csv", ".tsv", ".ods", ".numbers" }),
+            (5, "Presentaciones",      new[] { ".ppt", ".pptx", ".pptm", ".odp", ".key" }),
+            (6, "Imágenes",            new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tif", ".tiff", ".heic", ".svg", ".ico" }),
+            (7, "Planos y diseño",     new[] { ".dwg", ".dxf", ".psd", ".ai", ".indd", ".skp", ".rvt", ".cdr" }),
+            (8, "Video",               new[] { ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg" }),
+            (9, "Audio",               new[] { ".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".wma" }),
+            (10, "Código y datos",     new[] { ".cs", ".js", ".ts", ".py", ".java", ".kt", ".cpp", ".c", ".h", ".go", ".rs", ".php", ".rb", ".sql", ".json", ".xml", ".yml", ".yaml", ".html", ".htm", ".css", ".ps1", ".bat", ".cmd", ".sh", ".ini", ".log" }),
+            (11, "Comprimidos",        new[] { ".zip", ".rar", ".7z", ".tar", ".gz", ".iso", ".cab" }),
+            (12, "Correos",            new[] { ".msg", ".eml", ".pst", ".ost" }),
+            (13, "Programas",          new[] { ".exe", ".msi", ".appx", ".dll" })
+        };
+
+        /// <summary>Grupo y orden de un resultado.</summary>
+        public static (string label, int order) Of(string path, ResultKind kind)
+        {
+            if (kind == ResultKind.App) return ("Aplicaciones", 0);
+
+            try
+            {
+                if (Directory.Exists(path)) return ("Carpetas", 1);
+            }
+            catch { }
+
+            string ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+            if (ext.Length > 0)
+                foreach (var (order, label, list) in Table)
+                    if (Array.IndexOf(list, ext) >= 0) return (label, order);
+
+            return ("Otros", 99);
+        }
     }
 
     /// <summary>TextBlock que resalta el texto entre \u0001 y \u0002 (fragmentos de la búsqueda).</summary>
@@ -185,6 +233,8 @@ namespace DynamicIsland
             if (string.IsNullOrWhiteSpace(text))
             {
                 Results.ItemsSource = null;
+                _all.Clear();
+                TypeChips.Children.Clear();
                 ResultsArea.Visibility = Visibility.Collapsed;
                 Width = NarrowWidth;
                 return;
@@ -197,8 +247,11 @@ namespace DynamicIsland
             }).ContinueWith(t =>
             {
                 if (version != _version) return; // ya escribieron otra cosa
-                var items = t.Result.Select(ToItem).ToList();
-                Results.ItemsSource = items;
+                var items = t.Result.Select((r, i) => ToItem(r, i)).ToList();
+                _all = items;
+                _typeFilter = null;
+                BuildChips();
+                ShowResults();
                 EmptyText.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
                 if (items.Count == 0 && _indexBusy) EmptyText.Text = "Sin resultados todavía — el índice se sigue construyendo";
                 else EmptyText.Text = "Sin resultados";
@@ -211,24 +264,110 @@ namespace DynamicIsland
                 ListColumn.Width = any ? new GridLength(460) : new GridLength(1, GridUnitType.Star);
                 Width = any ? WideWidth : NarrowWidth;
 
-                if (any)
-                {
-                    Results.SelectedIndex = 0;
-                    Results.ScrollIntoView(items[0]);
-                    LoadPreview();
-                }
+                if (any) SelectFirst();
             }, TaskScheduler.FromCurrentSynchronizationContext());
         }
 
-        private static ResultItem ToItem(SearchResult r)
+        // ---------------- Clasificación por tipo ----------------
+
+        private List<ResultItem> _all = new();
+        private string? _typeFilter;
+
+        /// <summary>Arma la lista agrupada por tipo (y filtrada si hay un tipo elegido).</summary>
+        private void ShowResults()
+        {
+            var shown = _typeFilter == null ? _all : _all.Where(i => i.Group == _typeFilter).ToList();
+            var view = new System.Windows.Data.ListCollectionView(shown);
+            // Un solo tipo a la vista no necesita encabezados
+            if (_typeFilter == null)
+                view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(nameof(ResultItem.Group)));
+            view.SortDescriptions.Add(new SortDescription(nameof(ResultItem.GroupOrder), ListSortDirection.Ascending));
+            view.SortDescriptions.Add(new SortDescription(nameof(ResultItem.Order), ListSortDirection.Ascending));
+            Results.ItemsSource = view;
+        }
+
+        private void SelectFirst()
+        {
+            if (Results.Items.Count == 0) return;
+            Results.SelectedIndex = 0;
+            Results.ScrollIntoView(Results.Items[0]);
+            LoadPreview();
+        }
+
+        /// <summary>Fichas de tipo: "Todo" y un botón por cada tipo presente, con su conteo.</summary>
+        private void BuildChips()
+        {
+            TypeChips.Children.Clear();
+            if (_all.Count == 0) return;
+
+            var groups = _all.GroupBy(i => i.Group)
+                             .Select(g => (Label: g.Key, Count: g.Count(), Order: g.Min(i => i.GroupOrder)))
+                             .OrderBy(g => g.Order)
+                             .ToList();
+
+            TypeChips.Children.Add(Chip("Todo", _all.Count, null));
+            if (groups.Count > 1)
+                foreach (var g in groups) TypeChips.Children.Add(Chip(g.Label, g.Count, g.Label));
+        }
+
+        private Border Chip(string label, int count, string? filter)
+        {
+            bool on = _typeFilter == filter;
+            var text = new TextBlock
+            {
+                Text = $"{label}  {count}",
+                FontSize = 11.5,
+                Foreground = on ? Brushes.White : new SolidColorBrush(Color.FromRgb(0x9A, 0x9A, 0xA2))
+            };
+            var chip = new Border
+            {
+                Background = new SolidColorBrush(on ? Color.FromRgb(0x0A, 0x5B, 0xD3) : Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF)),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(10, 4, 10, 5),
+                Margin = new Thickness(0, 0, 6, 6),
+                Cursor = Cursors.Hand,
+                Child = text,
+                Tag = filter
+            };
+            chip.MouseLeftButtonUp += (_, e) =>
+            {
+                _typeFilter = filter;
+                BuildChips();
+                ShowResults();
+                SelectFirst();
+                e.Handled = true;
+            };
+            return chip;
+        }
+
+        /// <summary>Tab pasa al siguiente tipo.</summary>
+        private void CycleType(int direction)
+        {
+            var order = new List<string?> { null };
+            order.AddRange(_all.GroupBy(i => i.Group)
+                               .Select(g => (Label: g.Key, Order: g.Min(i => i.GroupOrder)))
+                               .OrderBy(g => g.Order).Select(g => (string?)g.Label));
+            if (order.Count <= 1) return;
+            int i = order.IndexOf(_typeFilter);
+            _typeFilter = order[((i < 0 ? 0 : i) + direction + order.Count) % order.Count];
+            BuildChips();
+            ShowResults();
+            SelectFirst();
+        }
+
+        private static ResultItem ToItem(SearchResult r, int order)
         {
             string folder = System.IO.Path.GetDirectoryName(r.Path) ?? "";
             string when = r.Modified.ToString("d MMM yyyy", new CultureInfo("es-MX"));
+            var (group, groupOrder) = FileKinds.Of(r.Path, r.Kind);
             return new ResultItem
             {
                 Path = r.Path,
                 Name = r.Name,
                 Icon = ShellIcons.Get(r.Path),
+                Group = group,
+                GroupOrder = groupOrder,
+                Order = order,
                 KindLabel = r.Kind switch
                 {
                     ResultKind.App => "App",
@@ -402,6 +541,10 @@ namespace DynamicIsland
                 case Key.Enter:
                     if (Results.SelectedItem is ResultItem item)
                         Open(item, reveal: Keyboard.Modifiers.HasFlag(ModifierKeys.Control));
+                    e.Handled = true;
+                    break;
+                case Key.Tab when _all.Count > 0:
+                    CycleType(Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? -1 : 1);
                     e.Handled = true;
                     break;
             }

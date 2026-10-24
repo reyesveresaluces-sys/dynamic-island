@@ -206,6 +206,18 @@
                                                Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
                                 </Grid>
                             </RadioButton>
+                            <!-- Ventanas abiertas: dos tarjetas apiladas -->
+                            <RadioButton x:Name="TabWindows" Style="{StaticResource TabButton}"
+                                         ToolTip="Ventanas abiertas" Checked="Tab_Checked">
+                                <Grid Width="16" Height="14">
+                                    <Rectangle Width="11" Height="9" RadiusX="2" RadiusY="2"
+                                               HorizontalAlignment="Right" VerticalAlignment="Top" Opacity="0.55"
+                                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                    <Rectangle Width="11" Height="9" RadiusX="2" RadiusY="2"
+                                               HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                               Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+                                </Grid>
+                            </RadioButton>
                         </StackPanel>
                     </DockPanel>
 
@@ -229,6 +241,7 @@
                         <local:LauncherSpace x:Name="LauncherSpaceView" Visibility="Collapsed"/>
                         <local:TimerSpace x:Name="TimerSpaceView" Visibility="Collapsed"/>
                         <local:ZonesSpace x:Name="ZonesSpaceView" Visibility="Collapsed"/>
+                        <local:WindowsSpace x:Name="WindowsSpaceView" Visibility="Collapsed"/>
                     </Grid>
                 </Grid>
             </Grid>

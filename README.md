@@ -11,6 +11,7 @@ Una "Dynamic Island" estilo iPhone en la parte superior de la pantalla que **ref
   - al cambiar de canción, la isla lo anuncia.
 - **Varios monitores:** aparece una isla en cada pantalla, sincronizadas entre sí (misma notificación, misma música, descartar/limpiar en una se refleja en todas). Si conectas o desconectas un monitor, se ajusta sola. Se puede limitar a la pantalla principal desde la bandeja.
 - **Buscador estilo Spotlight (Alt+Espacio):** busca apps, archivos por nombre y **texto dentro de los documentos** (como AnyTXT Searcher) en todos los discos:
+  - **resultados separados por tipo de archivo**: Aplicaciones, Carpetas, Documentos, PDF, Hojas de cálculo, Presentaciones, Imágenes, Planos y diseño, Video, Audio, Código y datos, Comprimidos, Correos y Programas, cada uno con su encabezado y su conteo. Las fichas de arriba filtran a un solo tipo (Tab y Shift+Tab pasan de uno a otro);
   - formatos de contenido: txt, md, csv, json, xml, html, código fuente, Word (docx), Excel (xlsx), PowerPoint (pptx), OpenDocument, PDF, RTF y EPUB;
   - resultados al instante mientras escribes, con el fragmento encontrado resaltado;
   - ↵ abre, Ctrl+↵ muestra el archivo en su carpeta, Esc cierra;
@@ -23,7 +24,7 @@ Una "Dynamic Island" estilo iPhone en la parte superior de la pantalla que **ref
 
 ### Espacios (estilo "edge dock")
 
-Al pasar el mouse, la isla se expande y muestra **espacios**. Se cambian con la **rueda del mouse** (o deslizando de lado en el touchpad), con las pestañas, o con ←/→ y 1–6 si la abriste con el teclado:
+Al pasar el mouse, la isla se expande y muestra **espacios**. Se cambian con la **rueda del mouse** (o deslizando de lado en el touchpad), con las pestañas, o con ←/→ y 1–7 si la abriste con el teclado:
 
 | Espacio | Qué hace |
 |---|---|
@@ -33,6 +34,14 @@ Al pasar el mouse, la isla se expande y muestra **espacios**. Se cambian con la 
 | 🚀 Apps | Lanzador de apps, archivos y carpetas **sin límite**. Arrastra cualquier cosa sobre la isla para agregarla; clic derecho para ordenar o quitar |
 | ⏱️ Temporizador | Temporizador con atajos (1, 5, 10, 25, 60 min) y cronómetro con vueltas. Mientras corren, la isla compacta muestra la cuenta |
 | 🪟 Zonas | Disposición de ventanas estilo **FancyZones** para esa pantalla, con vista previa para mandar la ventana activa a una zona con un clic |
+| 🗂️ Ventanas | Todo lo que tienes abierto, con su **captura**, para traerlo al frente de un clic — y las ventanas **guardadas en la isla** |
+
+### Ventanas guardadas en la isla
+
+- **`Ctrl+Alt+↓`** (o bandeja → *Ventanas abiertas* → *Guardar la ventana activa*) **absorbe** la ventana de enfrente hacia la isla: su imagen se encoge por una curva hasta la píldora y la ventana queda minimizada.
+- El espacio **Ventanas** muestra todo lo abierto con su captura; las guardadas salen primero y con borde azul. **Clic** la trae de vuelta con la animación inversa; **clic derecho** para guardarla o traerla al frente.
+- Las capturas se toman solo mientras el espacio está a la vista (y se refrescan cada pocos segundos), así que no gasta nada cuando no lo usas.
+- Sigue siendo una ventana normal de Windows: también aparece en la barra de tareas y con Alt+Tab.
 
 ### Zonas de ventanas (como FancyZones de PowerToys)
 
@@ -100,6 +109,9 @@ El Administrador de tareas **no sirve para agregar** programas al inicio, solo p
 | `ZoneLayouts.cs` | Disposiciones de zonas (predefinidas y cuadrículas a medida) |
 | `ZoneOverlayWindow.cs` | Capa transparente que dibuja las zonas sobre el monitor mientras arrastras |
 | `ZoneEditorWindow.xaml(.cs)` | Editor de diseños: dibujar, mover y redimensionar zonas a mano |
+| `WindowService.cs` | Ventanas abiertas: lista, íconos, capturas, traer al frente y guardar en la isla |
+| `StashAnimation.cs` | La animación de absorber la ventana hacia la isla (y la inversa) |
+| `WindowsSpace` | El espacio *Ventanas* de la isla |
 | `ZonesSpace` | El espacio *Zonas* de la isla: elegir disposición, separación y enviar ventanas |
 | `MediaService.cs` | Música en curso, controles y línea de tiempo (GlobalSystemMediaTransportControls) |
 | `MediaSpace` / `ClipboardSpace` / `LauncherSpace` / `TimerSpace` / `ZonesSpace` | Los espacios de la isla expandida |
